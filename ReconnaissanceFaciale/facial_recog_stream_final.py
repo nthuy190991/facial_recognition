@@ -394,7 +394,7 @@ def flask_init():
     
     @app.route('/')
     def render_hmtl():
-        return render_template('hello.html')
+        return render_template('new.html')
         
     @app.route('/StT/<text>', methods=['POST'])
     def SpeechToText(text):
@@ -452,7 +452,6 @@ def chrome_tts(text): # Text-to-Speech
     rate = 1.1 # speech rate from hello.html
     timeNeeded = float(nbOfWords)/130/rate*60 # Average words-per-min in speech = 130
     time.sleep(timeNeeded)
-    #time.sleep(1)
 
 def chrome_stt(): # Speech-to-Text
     global todo
@@ -462,7 +461,7 @@ def chrome_stt(): # Speech-to-Text
     t0 = time.time()
     while stt=="":
         time.sleep(0.05) # TODO: How to be sure when the STT is finished
-        if (time.time()-t0>=5): # Time out after 10 secs
+        if (time.time()-t0>=8): # Time out after 10 secs
             stt = '@'
     resp = stt
     return resp
