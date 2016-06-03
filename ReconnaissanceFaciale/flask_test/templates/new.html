@@ -202,7 +202,11 @@
 			$.post('/start'); //TODO
 			
 			$('#sendButton').click(submitUserText);
-			
+			$("#userInput").keyup(function(event){
+				if(event.keyCode == 13){
+					$("#sendButton").click();
+				}
+			});
 			waitForServerInput();
 	
 		});
@@ -242,8 +246,7 @@
 				var text = event.results[0][0].transcript;
 				var text2 = text[0].toUpperCase(); // Put first letter on uppercase
 				//$('<div/>').html(text2.concat(text.substring(1))).appendTo($conversation);
-				//str1 = '<li class="mar-btm"><div class="media-left"><img src="https://scontent.cdninstagram.com/t51.2885-15/s320x320/e35/11848941_1009419985756183_463034350_n.jpg?ig_cache_key=MTA3ODM0MDE5ODc2MTgxNjcxNQ%3D%3D.2" class="img-circle img-sm" alt="Profile Picture"></div><div class="media-body pad-hor"><div class="speech"><a href="#" class="media-heading">You</a><p class="Me">'+text2.concat(text.substring(1))+'</p><p class="speech-time"><i class="fa fa-clock-o fa-fw"></i>09:23AM</p></div></div></li>'
-				//$( "ul.list-unstyled media-block" ).html(str1).appendTo($conversation);
+				
 				$( "p.You" ).html(text2.concat(text.substring(1))).appendTo($conversation);
 				//var t = Date.now()
 				//$( "i.fa fa-clock-o fa-fw").html(t.toString()).appendTo($conversation);
@@ -265,8 +268,7 @@
 					startAudio(data);
 					//var text = '<b style="color:#FF0000">Moi:</b>&nbsp;&nbsp;'
 					//$('<div/>').html(text.concat(data)).appendTo($conversation);
-					//var str1 = '<li class="mar-btm"><div class="media-left"><img src="https://scontent.cdninstagram.com/t51.2885-15/s320x320/e35/11848941_1009419985756183_463034350_n.jpg?ig_cache_key=MTA3ODM0MDE5ODc2MTgxNjcxNQ%3D%3D.2" class="img-circle img-sm" alt="Profile Picture"></div><div class="media-body pad-hor"><div class="speech"><a href="#" class="media-heading">Me</a><p class="Me">'+data+'</p><p class="speech-time"><i class="fa fa-clock-o fa-fw"></i>09:23AM</p></div></div></li>';
-					//$( "ul.list-unstyled media-block" ).html(str1).appendTo($conversation);
+					
 					var text2 = data[0].toUpperCase(); // Put first letter on uppercase
 					$( "p.Me" ).html(text2.concat(data.substring(1))).appendTo($conversation);
 					//var t = new Date().getTime();
@@ -280,8 +282,13 @@
 		
 				
 		function submitUserText() {
-			alert("its done." + $("#userInput").val()); 
+			//alert("its done." + $("#userInput").val()); 
+			var text = $("#userInput").val();
 			$.post("/textFromHTML/" + $("#userInput").val()); //TODO
+			$( "p.You" ).html(text).appendTo($conversation);
+			//$("ul.list-unstyled media-block").append('<li class="mar-btm"><div class="media-body pad-hor"><div class="speech">' + $("avatar2") + $("itsYou") + '<p class="You">'+text+'</p>'+ $("dispTime") + '</div></div></li>');
+			var text2 = "Votre identifiant : ";
+			$( "p.Me" ).html(text2.concat(text)).appendTo($conversation);
 		}
 	</script>
 	
@@ -321,7 +328,7 @@
     							</div>
     							<div class="media-body pad-hor speech-right">
     								<div class="speech">
-    									<!-- <a href="#" class="media-heading">You</a> -->
+    									<a href="#" class="media-heading">You</a>
     									<p class="You"></p>
     									<p class="speech-time">
     										<i class="fa fa-clock-o fa-fw"></i> 09:23AM
@@ -335,7 +342,7 @@
     							</div>
     							<div class="media-body pad-hor">
     								<div class="speech">
-    									<!-- <a href="#" class="media-heading">Me</a> -->
+    									<a href="#" class="media-heading">Me</a>
     									<p class="Me"></p>
     									<p class="speech-time">
     									<i class="fa fa-clock-o fa-fw"></i>09:23AM
@@ -344,7 +351,7 @@
     							</div>
     						</li>
     						
-    						<!-- <li class="mar-btm">
+    						<!--<li class="mar-btm">
     							<div class="media-left">
     								<img src="http://bootdey.com/img/Content/avatar/avatar1.png" class="img-circle img-sm" alt="Profile Picture">
     							</div>
@@ -427,7 +434,7 @@
     									</p>
     								</div>
     							</div>
-    						</li> -->
+    						</li>-->
     					</ul>
     				</div>
     			<div class="nano-pane"><div class="nano-slider" style="height: 141px; transform: translate(0px, 0px);"></div></div></div>
@@ -436,7 +443,7 @@
     			<div class="panel-footer">
     				<div class="row">
     					<div class="col-xs-9">
-    						<input type="text" placeholder="Enter your text" class="form-control chat-input" id="userInput">
+    						<input type="text" placeholder="Enter your text" class="form-control chat-input" id="userInput"/> <!-- onkeydown="if (event.keyCode == 13) document.getElementById('sendButton').click()" /> -->
     					</div>
     					<div class="col-xs-3">
     						<button class="btn btn-primary btn-block" type="submit" id="sendButton">Send</button>
@@ -450,7 +457,6 @@
 <script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
 <script src="http://netdna.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
 <script type="text/javascript">
-	
 </script>
 </body>
 </html>

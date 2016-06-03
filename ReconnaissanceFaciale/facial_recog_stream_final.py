@@ -15,28 +15,30 @@ import xlrd
 from threading import Thread
 import subprocess
 import platform
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, Response
 import thread
 from processRequest import processRequest
 import operator
 from binascii import a2b_base64
 
-# Face API and Emotion API Variables
-_url_face   = 'https://api.projectoxford.ai/face/v1.0/detect'
-_key_face   = '5d99eec09a7e4b2a916eba7f75671600' # primary key
-_url_emo    = 'https://api.projectoxford.ai/emotion/v1.0/recognize'
-_key_emo    = "b226d933ab854505b9b9877cf2f4ff7c" # primary key
-_maxNumRetries = 10
+
 
 
 """
 Replace French accents in texts
 """
 def replace_accents(text):
-    text_origine = ['Ê','à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü']
-    text_replace  = ['\xC3','\xE0', '\xE1', '\xE2', '\xE3', '\xE4', '\xE5', '\xE6', '\xE7', '\xE8', '\xE9', '\xEA', '\xEB', '\xEC', '\xED', '\xEE', '\xEF', '\xF2', '\xF3', '\xF4', '\xF5', '\xF6', '\xF9', '\xFA', '\xFB', '\xFC']
-    for i in range(len(text_origine)):
-        text2 = text.replace(text_origine[i], text_replace[i])
+    chars_origine = ['Ê','à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü']
+    chars_replace  = ['E','\xE0', '\xE1', '\xE2', '\xE3', '\xE4', '\xE5', '\xE6', '\xE7', '\xE8', '\xE9', '\xEA', '\xEB', '\xEC', '\xED', '\xEE', '\xEF', '\xF2', '\xF3', '\xF4', '\xF5', '\xF6', '\xF9', '\xFA', '\xFB', '\xFC']
+    text2 = str_replace_chars(text, chars_origine, chars_replace)
+    return text2
+    
+"""
+Replace characters in a string
+"""
+def str_replace_chars(text, chars_origine, chars_replace):
+    for i in range(len(chars_origine)):
+        text2 = text.replace(chars_origine[i], chars_replace[i])
         text  = text2
     return text2
 
@@ -47,6 +49,13 @@ Face and Emotion API
 """   
 def call_face_emotion_api(img):
     
+    # Face API and Emotion API Variables
+    _url_face   = 'https://api.projectoxford.ai/face/v1.0/detect'
+    _key_face   = '5d99eec09a7e4b2a916eba7f75671600' # primary key
+    _url_emo    = 'https://api.projectoxford.ai/emotion/v1.0/recognize'
+    _key_emo    = "b226d933ab854505b9b9877cf2f4ff7c" # primary key
+    _maxNumRetries = 10
+
     global age, gender, emo
     cv2.imwrite('test.jpg', img)
     
@@ -79,7 +88,7 @@ def call_face_emotion_api(img):
     
     
     """
-    Outputs
+    Results
     """
     print 'Found {} faces'.format(len(faceResult))
     for currFace in faceResult:
@@ -97,9 +106,9 @@ def call_face_emotion_api(img):
     
 
 """
-
+Yield Face and Emotion API results
 """
-def show_face_emotion_api_results(flag_speech): #TODO:
+def get_face_emotion_api_results(flag_speech): 
     global age, gender, emo
     resp = detect_face_attributes(flag_speech)
     if resp==1:
@@ -180,7 +189,7 @@ def write_txt(filename, text):
 """
 Ask a name or id as a string from command line
 """
-def ask_name(display):
+def ask_name():
     global text, text2, text3, textFromHTML
     text  = ''
     text2 = ''
@@ -196,8 +205,6 @@ def ask_name(display):
     else:
         res = raw_input("Username/ID/E-mail: ") # Request a string from keyboard
 
-    if (display):
-        print("Merci Madame/Sir " + str(res))
     return res
     
 """
@@ -262,7 +269,7 @@ def speech_init():
     thread_tts.start()
 
     if (int(platform.version().split(".")[0]) >= 8): # Determine Windows version
-        STT_exe_path   = r'C:\Applications\RecoFacialFinal\SpeechToText\bin\Debug\RecognizerPython.exe' # TODO: wait Guillaume fixs this exe for win 10
+        STT_exe_path   = r'C:\Applications\RecoFacialFinal\SpeechToText\bin\Debug\RecognizerPython.exe' 
     else:
         STT_exe_path   = r'C:\Applications\RecoFacialFinal\SpeechToText\bin_old_2nd_version\Debug\RecognizerPython.exe'
         
@@ -293,7 +300,7 @@ def call_exe_listening(exe, txtr, txtw):
 System listens to user
 """
 def system_listen(): # Speech-To-Text
-    write_txt(STT_txt_r_path, '0\n1') # write '01' to start recognizer
+    write_txt(STT_txt_r_path, '0\n1') # write '0\n1' to start speech recognizer
     time.sleep(0.5)
 
     resp = readline_txt(STT_txt_w_path)
@@ -394,7 +401,7 @@ def flask_init():
     
     @app.route('/')
     def render_hmtl():
-        return render_template('new.html')
+        return render_template('hello.html')
         
     @app.route('/StT/<text>', methods=['POST'])
     def SpeechToText(text):
@@ -406,7 +413,7 @@ def flask_init():
     def getTextFromHTML(text):
         global textFromHTML
         textFromHTML = text
-        print 'textFromHTML: ', textFromHTML
+        #print 'textFromHTML: ', textFromHTML
         return "", 200
         
     @app.route('/longpolling', methods=['POST'])
@@ -433,6 +440,14 @@ def flask_init():
 #        frameFromHTML = cv2.imread('image.jpeg')
         
         return "",200
+        
+#    # TODO: Send back result to client
+#    @app.route('/video_feed')
+#    def video_feed():
+#        _, jpeg = cv2.imencode('.jpg', frame)
+#        return Response(b'--frame\r\n'
+#           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes()
+#           + b'\r\n\r\n', mimetype='multipart/x-mixed-replace; boundary=frame')
  
 def flaskThread():
     app.run(host='0.0.0.0', port=5000)
@@ -441,15 +456,10 @@ def chrome_tts(text): # Text-to-Speech
     global todo
     todo = "TTS " + text # TODO: How to know when a text is finished speaking
     
-    text2 = text
-    text_origine = [' ?', ' !', ' :']
-    text_replace = ['?','!',':']
-    for i in range(len(text_origine)):
-        text3 = text2.replace(text_origine[i], text_replace[i])
-        text2  = text3
-        
-    nbOfWords  = len(text3.split())
-    rate = 1.1 # speech rate from hello.html
+    # Calculate the time needed to be wait, until the TTS is finished
+    text2 = str_replace_chars(text, [' ?',' !',' :',' ;'], ['?','!',':',';'])
+    nbOfWords  = len(text2.split())
+    rate = 1.1 # speech rate (which is set in hello.html)
     timeNeeded = float(nbOfWords)/130/rate*60 # Average words-per-min in speech = 130
     time.sleep(timeNeeded)
 
@@ -460,7 +470,8 @@ def chrome_stt(): # Speech-to-Text
     todo = "STT"
     t0 = time.time()
     while stt=="":
-        time.sleep(0.05) # TODO: How to be sure when the STT is finished
+        pass
+        #time.sleep(0.05) # TODO: How to be sure when the STT is finished
         if (time.time()-t0>=8): # Time out after 10 secs
             stt = '@'
     resp = stt
@@ -503,143 +514,74 @@ def video_streaming():
     global tb_nb_times_recog
     global flag_quit
     
-#    video_capture = cv2.VideoCapture(0)
-#    
-#    while True:
-#        ret, frame = video_capture.read()
-#        if (ret == True):
-#            frame  = cv2.flip(frame, 1) # Vertically flip frame
-#            frame0 = frame
-#            key = cv2.waitKey(1)
-#            if (key == 27):         # wait for ESC key to exit
-#                cv2.destroyAllWindows()
-#                
-#                flag_quit = 1
-#                break
-#                quit_program(flag_speech)
-#                
-#            if (key2 == 27):        # key from main program
-#                cv2.destroyAllWindows()
-#                break
-#                
-#            """
-#            Face Detection part
-#            """
-#            gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Convert frame to a grayscale image
-#            faces = detect_faces(faceCascade, gray) # Detect faces on grayscale image
-#    
-#            """
-#            Recognition part
-#            """
-#            for (x, y, w, h) in faces:
-#                if len(faces)>1: # Consider only the biggest face appears in the video
-#                    w_vect = faces.T[2,:]
-#                    h_vect = faces.T[3,:]
-#                    x0, y0, w0, h0 = faces[np.argmax(w_vect*h_vect)]
-#    
-#                elif len(faces)==1: # If there is only one face
-#                    x0, y0, w0, h0 = faces[0]
-#                        
-#                if not flag_disable_detection:
-#                    cv2.rectangle(frame, (x0, y0), (x0+w0, y0+h0), (25, 199, 247), 1) # Draw a rectangle around the faces
-#                    #cv2.rectangle(frame, (x, y), (x+w, y+h), (25, 199, 247), 1) # Draw a rectangle around the faces
-#                
-#                if len(faces)>=1:
-#                    image_save = gray[y0 : y0 + h0, x0 : x0 + w0]
-#                    nbr_predicted, conf = recognizer.predict(image_save) # Predict function
-#    
-#                    nom = list_nom[nbr_predicted-1] # Get resulting name
-#    
-#                    if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
-#                        if not flag_disable_detection:
-#                            txt = nom + ', distance: ' + str(conf)
-#                            message_xy(frame, txt, x0, y0-5, 'w', 1)
-#                            
-#                        tb_nb_times_recog[nbr_predicted-1] = tb_nb_times_recog[nbr_predicted-1] + 1 # Increase nb of recognize times
-#                        
-#                    # TODO: face api
-#                    message_xy(frame, age, x0+w0, y0, 'b', 1)
-#                    message_xy(frame, gender, x0+w0, y0+10, 'b', 1)
-#                    message_xy(frame, emo, x0+w0, y0+20, 'b', 1)
-#                    
-#            # End of For-loop
-#                
-#        # Texts to display on video
-#        count_time = time.time() - time_origine
-#        fps = count_fps()
-#
-#        message(frame, "Time: " + str(count_time)[0:4], 0, 1, 'g', 2)
-#        message(frame, "FPS: "  + str(fps)[0:5],        0, 2, 'g', 1)
-#        message(frame, text,  0, 3, 'g', 1)
-#        message(frame, text2, 0, 4, 'g', 1)
-#        message(frame, text3, 0, 5, 'g', 1)    
-#        
-#        # Frame display
-#        #cv2.imshow('Video streaming', frame)   
-#        cv2.imshow('Video from HTML', frameFromHTML)
-#        
-#    video_capture.release() # Release video capture
-#    cv2.destroyAllWindows()
-#        
-    time_origine = time.time()
+    time_origine = time.time() # for display
+    
+    if (not(flag_speech) or (speech_system!='Chrome')):
+        video_capture = cv2.VideoCapture(0)
     
     while True:
-        frame = frameFromHTML
-        frame  = cv2.flip(frame, 1) # Vertically flip frame
-        frame0 = frame
-        key = cv2.waitKey(1)
-        if (key == 27):         # wait for ESC key to exit
-            cv2.destroyAllWindows()
-            
-            flag_quit = 1
-            break
-            quit_program(flag_speech)
-            
-        if (key2 == 27):        # key from main program
-            cv2.destroyAllWindows()
-            break
+        if (not(flag_speech) or (speech_system!='Chrome')):
+            ret, frame = video_capture.read()
+        else:
+            frame = frameFromHTML
+            ret = True
         
-        """
-        Face Detection part
-        """
-        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Convert frame to a grayscale image
-        faces = detect_faces(faceCascade, gray) # Detect faces on grayscale image
-
-        """
-        Recognition part
-        """
-        for (x, y, w, h) in faces:
-            if len(faces)>1: # Consider only the biggest face appears in the video
-                w_vect = faces.T[2,:]
-                h_vect = faces.T[3,:]
-                x0, y0, w0, h0 = faces[np.argmax(w_vect*h_vect)]
-
-            elif len(faces)==1: # If there is only one face
-                x0, y0, w0, h0 = faces[0]
-                    
-            if not flag_disable_detection:
-                cv2.rectangle(frame, (x0, y0), (x0+w0, y0+h0), (25, 199, 247), 1) # Draw a rectangle around the faces
-                #cv2.rectangle(frame, (x, y), (x+w, y+h), (25, 199, 247), 1) # Draw a rectangle around the faces
-            
-            if len(faces)>=1:
-                image_save = gray[y0 : y0 + h0, x0 : x0 + w0]
-                nbr_predicted, conf = recognizer.predict(image_save) # Predict function
-
-                nom = list_nom[nbr_predicted-1] # Get resulting name
-
-                if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
-                    if not flag_disable_detection:
-                        txt = nom + ', distance: ' + str(conf)
-                        message_xy(frame, txt, x0, y0-5, 'w', 1)
-                        
-                    tb_nb_times_recog[nbr_predicted-1] = tb_nb_times_recog[nbr_predicted-1] + 1 # Increase nb of recognize times
-                    
-                # TODO: face api
-                message_xy(frame, age, x0+w0, y0, 'b', 1)
-                message_xy(frame, gender, x0+w0, y0+10, 'b', 1)
-                message_xy(frame, emo, x0+w0, y0+20, 'b', 1)
+        if (ret == True):
+            frame  = cv2.flip(frame, 1) # Vertically flip frame
+            frame0 = frame
+            key = cv2.waitKey(1)
+            if (key == 27):         # wait for ESC key to exit
+                cv2.destroyAllWindows()
                 
-        # End of For-loop
+                flag_quit = 1
+                break
+                quit_program(flag_speech)
+                
+            if (key2 == 27):        # key from main program
+                cv2.destroyAllWindows()
+                break
+                
+            """
+            Face Detection part
+            """
+            gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Convert frame to a grayscale image
+            faces = detect_faces(faceCascade, gray) # Detect faces on grayscale image
+    
+            """
+            Recognition part
+            """
+            for (x, y, w, h) in faces:
+                if len(faces)>1: # Consider only the biggest face appears in the video
+                    w_vect = faces.T[2,:]
+                    h_vect = faces.T[3,:]
+                    x0, y0, w0, h0 = faces[np.argmax(w_vect*h_vect)]
+    
+                elif len(faces)==1: # If there is only one face
+                    x0, y0, w0, h0 = faces[0]
+                        
+                if not flag_disable_detection:
+                    cv2.rectangle(frame, (x0, y0), (x0+w0, y0+h0), (25, 199, 247), 1) # Draw a rectangle around the faces
+                    #cv2.rectangle(frame, (x, y), (x+w, y+h), (25, 199, 247), 1) # Draw a rectangle around the faces
+                
+                if len(faces)>=1:
+                    image_save = gray[y0 : y0 + h0, x0 : x0 + w0]
+                    nbr_predicted, conf = recognizer.predict(image_save) # Predict function
+    
+                    nom = list_nom[nbr_predicted-1] # Get resulting name
+    
+                    if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
+                        if not flag_disable_detection:
+                            txt = nom + ', distance: ' + str(conf)
+                            message_xy(frame, txt, x0, y0-5, 'w', 1)
+                            
+                        tb_nb_times_recog[nbr_predicted-1] = tb_nb_times_recog[nbr_predicted-1] + 1 # Increase nb of recognize times
+                        
+                    # TODO: face api
+                    message_xy(frame, age, x0+w0, y0, 'b', 1)
+                    message_xy(frame, gender, x0+w0, y0+10, 'b', 1)
+                    message_xy(frame, emo, x0+w0, y0+20, 'b', 1)
+                    
+            # End of For-loop
                 
         # Texts to display on video
         count_time = time.time() - time_origine
@@ -652,9 +594,13 @@ def video_streaming():
         message(frame, text3, 0, 5, 'g', 1)    
         
         # Frame display
-        cv2.imshow('Video streaming', frame)  
-        
+        cv2.imshow('Video streaming', frame)   
+        #cv2.imshow('Video from HTML', frameFromHTML)
+    
+    if (not(flag_speech) or (speech_system!='Chrome')):
+        video_capture.release() # Release video capture
     cv2.destroyAllWindows()
+        
     
 """
 Put Texts on frame to display on streaming video at a predefined position (row,column)
@@ -760,11 +706,6 @@ def reform_username(name):
         lastname = 'nguyen'
         email_suffix = '@orange.com'
 
-    elif name=='face_sur_direct_matin':
-        firstname = 'direct'
-        lastname = 'matin'
-        email_suffix = '@journal.fr'
-
     elif name=='cleblain':
         firstname = 'christian'
         lastname = 'leblainvaux'
@@ -825,8 +766,25 @@ def retake_validate_photos(step_time, flag_show_photos, imgPath, name):
     while (b==0):
         text3 = "Veuillez repondre sur Terminal"
         if (flag_speech):
-            simple_message(flag_speech, '', "Veuillez répondre sur Terminal quelles photos que vous voulez changer ?")
-        nb = raw_input("Quelles photos souhaitez-vous changer ? ")
+            simple_message(flag_speech, '', "Veuillez répondre quelles photos que vous voulez changer ?")
+            
+        if (flag_speech and speech_system=='Chrome'):
+            global textFromHTML
+            while textFromHTML=="":
+                pass
+            nb = textFromHTML
+            textFromHTML = ""
+        else:
+            nb = raw_input("Quelles photos souhaitez-vous changer ? ")
+        
+        if ('-' in nb):
+            nb2 = ''
+            for i in range(int(nb[0]), int(nb[2])+1):
+                nb2 = nb2+str(i)
+            nb=nb2
+            
+        nb = str_replace_chars(nb, [',',';','.',' '], ['','','',''])
+            
         str_nb= ""
         for j in range(0, len(nb)):
             if (j==len(nb)-1):
@@ -837,8 +795,7 @@ def retake_validate_photos(step_time, flag_show_photos, imgPath, name):
         simple_message(flag_speech, 'Reprise de photos', 'Vous souhaitez changer les photos: ' + str_nb + ' ?')
         
         text  = 'Prenant photos'
-        text2 = 'Veuillez patienter... ' #+ str((nb_img_max-nb_img)*step_time)[0:2] + ' secondes'
-        text3 = ''
+        text2 = 'Veuillez patienter... '
         
         for j in range(0, len(nb)):
             text3 = str(j) + ' ont ete prises, reste a prendre : ' + str(len(nb)-j)
@@ -865,7 +822,7 @@ def retake_validate_photos(step_time, flag_show_photos, imgPath, name):
     # Update recognizer after taking and validating photos
     images, labels = get_images_and_labels(imgPath, list_nom)
     recognizer.update(images, np.array(labels))
-    print "Recognizer a été mis a jour..."
+    print u"Recognizer a été mis a jour..."
     
     flag_enable_recog = 1 # Re-enable recognition      
     #flag_wrong_recog  = 0 # Reset wrong recognition flag
@@ -877,24 +834,25 @@ Taking photos
 """
 def take_photos(step_time, flag_show_photos):
 
-    name = ask_name(0)
+    name = ask_name()
     #global flag_enable_recog
     global text, text2, text3
 
     image_to_paths = [imgPath+str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
 
     if os.path.exists(imgPath+str(name)+".0"+suffix):
-        print "Les fichiers avec le nom " + str(name) + " existent déjà"
-        b = Mbox("Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
+        print u"Les fichiers avec le nom " + str(name) + u" existent déjà"
+        #b = Mbox("Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
+        b = yes_or_no(flag_speech, "Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
         if (b==6):
             for image_del_path in image_to_paths:
                 os.remove(image_del_path)
         elif (b==7):
-            name = ask_name(0)
+            name = ask_name()
             image_to_paths = [imgPath + str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
     
     text = 'Prenant photos'
-    text2 = 'Veuillez patienter... ' #+ str((nb_img_max-nb_img)*step_time)[0:2] + ' secondes'
+    text2 = 'Veuillez patienter... '
     
     if (flag_speech): # Put in the IF-condition in order not to display the message box
         simple_message(flag_speech, '', text+'. '+text2)
@@ -973,7 +931,7 @@ def re_identification(nb_time_max):
         flag_reidentify   = 0
         flag_wrong_recog  = 0
         
-        show_face_emotion_api_results(flag_speech)
+        get_face_emotion_api_results(flag_speech)
         
         text, text2, text3 = go_to_formation(excel_filename, name)
         
@@ -984,7 +942,7 @@ def re_identification(nb_time_max):
         flag_reidentify = 0
         simple_message(flag_speech, 'Problème méconnaissable', 'Désolé je vous reconnaît pas, veuillez me donner votre identifiant')
         
-        name = ask_name(0)
+        name = ask_name()
         if os.path.exists(imgPath+str(name)+".0"+suffix):
             simple_message(flag_speech, 'Reprise de photos', 'Bonjour '+ str(name)+', je vous conseille de changer vos photos')
             flag_show_photos = 1
@@ -1016,7 +974,7 @@ def quit_program(flag_speech):
             chrome_tts("Merci de votre utilisation. Au revoir, à bientôt")
     
     if (quit_opt == 1):
-        print 'Session a terminée, fermer programme...'
+        print u'Session a terminée, fermer programme...'
         #sys.exit() # Supplementary to quit program more correctly
         
     elif (quit_opt == 0):
@@ -1141,7 +1099,7 @@ gender  = ''
 emo     = ''
 
 # Flags used in program
-flag_speech       = 1 # Speech flag (communications with user through dialogues or not)
+flag_speech       = 0 # Speech flag (communications with user through dialogues or not)
 flag_recog        = 0 # Recognition flag (flag=1 if recognize someone, flag=0 otherwise)
 flag_take_photo   = 0 # Flag if unknown user chooses to take photos
 flag_wrong_recog  = 0 # Flag if a person is recognized but not correctly, and feedbacks
@@ -1175,12 +1133,12 @@ recognizer  = cv2.createLBPHFaceRecognizer()
 list_nom    = []
 
 # Call the get_images_and_labels function and get the face images and the corresponding labels
-print "Obtenu Images et Labels à partir de database..."
+print u"Obtenu Images et Labels à partir de database..."
 images, labels = get_images_and_labels(root_path + imgPath, list_nom)
 
 # Perform the training
 recognizer.train(images, np.array(labels))
-print "Apprentissage a été fini...\n"
+print u"Apprentissage a été fini...\n"
 
 # Initialisation global variables
 frame  = 0
@@ -1267,7 +1225,7 @@ if (optin0==1):
             if (flag_recog):
                 if (key==ord('y') or key==ord('Y')): # User chooses Y to go to Formation page
                     flag_wrong_recog  = 0
-                    show_face_emotion_api_results(flag_speech)
+                    get_face_emotion_api_results(flag_speech)
                     text, text2, text3 = go_to_formation(excel_filename, nom)
 
                     key = 0
@@ -1278,7 +1236,7 @@ if (optin0==1):
                     flag_ask = 1
                     key = 0
 #                    thres = thres - 10 # Reduce threshold
-#                    print 'Réduire threshold à ' + str(thres)
+#                    print u'Réduire threshold à ' + str(thres)
                 
             if ((flag_recog and flag_wrong_recog) or (not flag_recog)): # Not recognized or not correctly recognized
                 if (flag_ask and (not flag_quit)):
@@ -1310,7 +1268,7 @@ if (optin0==1):
                             flag_take_photo = 0
                             res = allow_go_to_formation_by_id(flag_speech)
                             if (res==1): # User agrees to go to Formation in providing his id manually
-                                name = ask_name(0)
+                                name = ask_name()
                                 text, text2, text3 = go_to_formation(excel_filename, name)
                                 #flag_enable_recog = 0
                                 

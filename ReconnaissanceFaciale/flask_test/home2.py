@@ -37,6 +37,7 @@ def flask_init():
         global textFromHTML
         textFromHTML = text
         print 'textFromHTML: ', textFromHTML
+		
         return "", 200
         
     @app.route('/longpolling', methods=['POST'])
@@ -49,4 +50,4 @@ def flask_init():
         
 if __name__ == '__main__':
     flask_init()
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=9999)
