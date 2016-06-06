@@ -2,8 +2,8 @@
 <html lang="en">
 	<style>
 		#videoElement {
-			height: 300px;
-			width: 400px;
+			height: 375px;
+			width: 500px;
 			background-color: #666;
 		}
 
@@ -26,20 +26,27 @@
 		var msg = new SpeechSynthesisUtterance();
 		var voices = speechSynthesis.getVoices();
 		$conversation = $('.result');
-		$.post('/start'); //TODO
 		
-		$('#sendButton').click(submitUserText);
+		//var client_id = (Math.floor((Math.random() * 10000))+1).toString();
+		var rand_num = (Math.floor((Math.random() * 10000))).toString();
+		var client_id = "0".repeat(4-rand_num.length) + rand_num;
+		
+		$.post('/start/'+client_id); //TODO
+		
+		$('#sendButton').click(function(){
+			submitUserText(client_id);
+		});
 		$("#userInput").keyup(function(event){
 			if(event.keyCode == 13){
 				$("#sendButton").click();
 			}
 		});
 		
-		waitForServerInput();
+		waitForServerInput(client_id);
 	
-		var video = document.querySelector("#videoElement");
+		var video  = document.querySelector("#videoElement");
 		var canvas = document.querySelector("#canvasElement");
-		var ctx = canvas.getContext('2d');
+		var ctx    = canvas.getContext('2d');
 		 
 		navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
 		 
@@ -55,7 +62,7 @@
 			// do something
 		}
 	
-		snapshot(video,canvas,ctx);
+		snapshot(client_id,video,canvas,ctx);
 	});
 	
 	function startAudio(txt) {
@@ -86,7 +93,7 @@
 		
 	}
 	
-	function listenAndWrite() {
+	function listenAndWrite(client_id) {
 		
 		//window.speechSynthesis.cancel();
 		
@@ -97,54 +104,73 @@
 			var text2 = '<b style="color:#0000FF">Vous:</b>&nbsp;'
 			var text3 = text[0].toUpperCase(); // Put first letter on uppercase
 			$('<div/>').html(text2.concat(text3, text.substring(1))).appendTo($conversation);
-			$.post('/StT/'+text);
-			//listenAndWrite();
+			$.post('/StT/'+client_id+' '+text);
 		}
 		recognition.start();
 	}
 	
-	function waitForServerInput() {
-		$.post('/longpolling').done(function(data) {
-			waitForServerInput();
+	function waitForServerInput(client_id) {
+		$.post('/longpolling/'+client_id).done(function(data) {
+			waitForServerInput(client_id);
 			if (data === "STT") {
 				//listenAndWrite();
-				_wait();
+				_wait(client_id);
 			}
-			if (data.indexOf("TTS") === 0) {
-				data = data.substring(4);
-				startAudio(data);
+			if (data.indexOf("TTS") === 0){
+				client_id = data.substring(4,8);
+				txt = data.substring(9);
+				startAudio(txt);
 				var text = '<b style="color:#FF0000">Moi:</b>&nbsp;&nbsp;'
-				$('<div/>').html(text.concat(data)).appendTo($conversation);
+				$('<div/>').html(text.concat(txt)).appendTo($conversation);
 			}
+			
+			if (data.indexOf("Confirm:") === 0){
+				window.speechSynthesis.cancel();
+				data = data.substring(9);
+				var text2 = '<b style="color:#0000FF">Vous:</b>&nbsp;'
+				var text3 = data[0].toUpperCase(); // Put first letter on uppercase
+				$('<div/>').html(text2.concat(text3, data.substring(1), " (from userInput)")).appendTo($conversation);
+			}
+			
+			/*if (data === "quit"){
+				//alert("We have to go"); 
+				window.webkitSpeechRecognition.stop();
+				window.speechSynthesis.cancel();
+			}*/
 			/*if (data !== "") {
 				$('<div/>').html(data).appendTo($conversation);
 			}*/
 		});
 	}
 	
-	function _wait(){
+	function _wait(client_id){
 		if (!window.speechSynthesis.speaking){
-			listenAndWrite();
+			listenAndWrite(client_id);
 			return;
 		}
-		window.setTimeout(_wait, 100)
+		window.setTimeout(function(){_wait(client_id);}, 200)
+		/*i=0;
+		while (i<5){
+			window.setTimeout(_wait, 200);
+			i++;
+		}*/
 	}
 	
-	function snapshot(video,canvas,ctx) {
+	function snapshot(client_id,video,canvas,ctx) {
 		if (video.src !== null) {
 			cw = video.clientWidth;
 			ch = video.clientHeight;
 			canvas.width = cw;
 			canvas.height = ch;
 			ctx.drawImage(video, 0, 0, cw, ch);
-			$.post('/image',JSON.stringify({"img":canvas.toDataURL('image/jpeg',1.0)}));
+			$.post('/image',JSON.stringify({"client_id":client_id, "img":canvas.toDataURL('image/jpeg',1.0)}));
 		}
-		setTimeout(function(){snapshot(video,canvas,ctx);}, 100);
+		setTimeout(function(){snapshot(client_id,video,canvas,ctx);}, 100);
 	}
 	
-	function submitUserText() {
+	function submitUserText(client_id) {
 		//alert("Text submitted: " + $("#userInput").val()); 
-        $.post("/textFromHTML/" + $("#userInput").val()); //TODO
+        $.post("/textFromHTML/" + client_id + " " + $("#userInput").val()); //TODO
 	}
 	
 	</script>

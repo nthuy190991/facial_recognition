@@ -114,12 +114,19 @@ def get_face_emotion_api_results(flag_speech):
     if resp==1:
         age, gender, glasses, emo = call_face_emotion_api(frame0)
         
-        tb_emo = ['happiness', 'sadness', 'surprise', 'anger', 'fear', 'contempt', 'disgust', 'neutral']
-        tb_emo_correspond = ['êtes joyeux', 'êtes trist', 'êtes surprise', 'êtes en colère', 'avez peur', 'êtes mépris', 'êtes dégoût', 'êtes neutre']
+        tb_emo = ['happiness', 'sadness', 'surprise', 'anger', 'fear',
+                  'contempt', 'disgust', 'neutral']
+        tb_emo_correspond = ['êtes joyeux', 'êtes trist', 'êtes surprise',
+                             'êtes en colère', 'avez peur', 'êtes mépris',
+                             'êtes dégoût', 'êtes neutre']
         emo_str = tb_emo_correspond[tb_emo.index(emo)]
-        
-        tb_glasses = ['NoGlasses', 'ReadingGlasses', 'sunglasses', 'swimmingGoggles']
-        tb_glasses_correspond = ['ne portez pas de lunettes', 'portez les lunettes', 'portez les lunettes de soleil', 'portez les lunettes de natation']
+
+        tb_glasses = ['NoGlasses', 'ReadingGlasses',
+                      'sunglasses', 'swimmingGoggles']
+        tb_glasses_correspond = ['pas de lunettes', 
+                                 'portez des lunettes',
+                                 'portez des lunettes de soleil',
+                                 'portez des lunettes de natation']
         glasses_str = tb_glasses_correspond[tb_glasses.index(glasses)]
         
         s = "Bonjour " + ('Monsieur' if gender =='male' else 'Madame') + ", vous avez " + age.replace('.',',') + " ans, vous " + emo_str + ", et vous " + glasses_str
@@ -472,20 +479,15 @@ def chrome_stt(): # Speech-to-Text
     while stt=="":
         pass
         #time.sleep(0.05) # TODO: How to be sure when the STT is finished
-        if (time.time()-t0>=8): # Time out after 10 secs
-            stt = '@'
+        if (time.time()-t0>=8): # Time out after 8 secs
+            stt = '@' # Silence
     resp = stt
     return resp
     
 def chrome_yes_or_no(question):
     chrome_tts(question)
     response = chrome_stt()
-    
-#    if (response == 'oui' or response == "d'accord"):
-#        result = 1
-#    elif response == 'non':
-#        result = 0
-    
+       
     if ('oui' in response):
         result = 1
     elif ('non' in response):
@@ -523,7 +525,7 @@ def video_streaming():
         if (not(flag_speech) or (speech_system!='Chrome')):
             ret, frame = video_capture.read()
         else:
-            frame = frameFromHTML
+            frame = frameFromHTML 
             ret = True
         
         if (ret == True):
@@ -607,27 +609,23 @@ Put Texts on frame to display on streaming video at a predefined position (row,c
 """
 def message(frame, text, col, line, color, thickness):
 
-    if color=='r':
-        rgb = (0, 0, 255)
-    elif color=='g':
-        rgb = (0, 255, 0)
-    elif color=='b':
-        rgb = (255, 0, 0)
-    elif color=='w':
-        rgb = (255, 255, 255)
-
     height, width = frame.shape[:2]
-    if line==1:
-        cv2.putText(frame, text, (10, 20), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
-    elif line==2:
-        cv2.putText(frame, text, (10, 40), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
-    elif line==3:
-        cv2.putText(frame, text, (10, height-50), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
-    elif line==4:
-        cv2.putText(frame, text, (10, height-30), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
-    elif line==5:
-        cv2.putText(frame, text, (10, height-10), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
-
+    if (col==0):
+        x = 10
+        
+    if (line==1):
+        y = 20
+    elif (line==2):
+        y = 40
+    elif (line==3):
+        y = height-50
+    elif (line==4):
+        y = height-30
+    elif (line==5):
+        y = height-10
+        
+    message_xy(frame, text, x, y, color, thickness)
+    
 """
 Put Texts on frame to display on streaming video at position (x,y)
 """
@@ -642,24 +640,23 @@ def message_xy(frame, text, x, y, color, thickness):
     elif color=='w':
         rgb = (255, 255, 255)
 
-    height, width = frame.shape[:2]
     cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
 
 
 """
 Display Formation Panel for a recognized or username-known user
 """
-def go_to_formation(excel_filename, name):
+def go_to_formation(xls_filename, name):
 
     global flag_disable_detection, flag_enable_recog, text, text2, text3
     flag_disable_detection = 1 # Disable the detection when entering Formation page
     flag_enable_recog = 0 
     
-    tb_formation = read_xls(excel_filename, 0) # Read Excel file which contains Formation info
+    tb_formation = read_xls(xls_filename, 0) # Read Excel file which contains Formation info
     mail = reform_username(name) # Find email from name
     text  = "Bonjour " + str(name)
 
-    if (mail == 'not.available@example.com'):
+    if (mail == '.'):
         text2 = "Votre information n'est pas disponible !"
         text3 = "Veuillez contacter contact@orange.com"
     else:
@@ -722,34 +719,64 @@ def reform_username(name):
         email_suffix = '@orange.com'
 
     else:
-        firstname = 'not'
-        lastname = 'available'
-        email_suffix = '@example.com'
+        firstname = ''
+        lastname = ''
+        email_suffix = ''
 
     mail = firstname + '.' + lastname + email_suffix
     return mail
     
-"""
-Display photos that have just been taken, close them if after 5 seconds or press any key
-"""
-def show_photos(imgPath, name):
-    x=100; y=700
 
-    image_to_paths = [root_path+imgPath+str(name)+"."+str(j)+suffix for j in range(nb_img_max)]
+"""
+==============================================================================
+Taking photos
+==============================================================================
+"""
+def take_photos(step_time, flag_show_photos):
 
-    ind=1
-    for img_path in image_to_paths:
-        #print img_path
-        img = cv2.imread(img_path)
-        cv2.imshow('Photo '+str(ind), img)
-        height, width = img.shape[:2]
-        cv2.moveWindow('Photo '+str(ind), x, y)
-        x=x+width
-        ind=ind+1
-        
-    cv2.waitKey(5000) # wait a key for 5 seconds
-    for ind in range(nb_img_max):
-        cv2.destroyWindow('Photo '+str(ind+1))
+    name = ask_name()
+    #global flag_enable_recog
+    global text, text2, text3
+
+    image_to_paths = [imgPath+str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
+
+    if os.path.exists(imgPath+str(name)+".0"+suffix):
+        print u"Les fichiers avec le nom " + str(name) + u" existent déjà"
+        #b = Mbox("Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
+        b = yes_or_no(flag_speech, "Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
+        if (b==1):
+            for image_del_path in image_to_paths:
+                os.remove(image_del_path)
+        elif (b==0):
+            name = ask_name()
+            image_to_paths = [imgPath + str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
+    
+    text = 'Prenant photos'
+    text2 = 'Veuillez patienter... '
+    
+    if (flag_speech): # Put in the IF-condition in order not to display the message box
+        simple_message(flag_speech, '', text+'. '+text2)
+    
+    nb_img = 0        
+    while (nb_img < nb_img_max):
+        image_path = image_to_paths[nb_img]
+        cv2.imwrite(image_path, image_save)
+        print "Enregistrer photo " + image_path + ", nb de photos prises : " + str(nb_img+1)
+        text3 = str(nb_img+1) + ' ont ete prises, reste a prendre : ' + str(nb_img_max-nb_img-1)
+        nb_img += 1
+        time.sleep(step_time)
+
+    # Display photos that has just been taken
+    if flag_show_photos:
+        thread_show_photos = Thread(target = show_photos, args = (imgPath, name))
+        thread_show_photos.start()
+
+    time.sleep(0.25) 
+    
+    # Allow to retake photos and validate after finish taking
+    thread_retake_validate_photos = Thread(target = retake_validate_photos, args = (step_time, flag_show_photos, imgPath, name))
+    thread_retake_validate_photos.start()
+           
 
 """
 Retaking and validating photos
@@ -828,58 +855,33 @@ def retake_validate_photos(step_time, flag_show_photos, imgPath, name):
     #flag_wrong_recog  = 0 # Reset wrong recognition flag
     flag_ask = 1 # Reset asking
 
-
 """
-Taking photos
+Display photos that have just been taken, close them if after 5 seconds or press any key
 """
-def take_photos(step_time, flag_show_photos):
+def show_photos(imgPath, name):
+    x=100; y=700
 
-    name = ask_name()
-    #global flag_enable_recog
-    global text, text2, text3
+    image_to_paths = [root_path+imgPath+str(name)+"."+str(j)+suffix for j in range(nb_img_max)]
 
-    image_to_paths = [imgPath+str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
-
-    if os.path.exists(imgPath+str(name)+".0"+suffix):
-        print u"Les fichiers avec le nom " + str(name) + u" existent déjà"
-        #b = Mbox("Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
-        b = yes_or_no(flag_speech, "Existence de fichiers", "Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
-        if (b==6):
-            for image_del_path in image_to_paths:
-                os.remove(image_del_path)
-        elif (b==7):
-            name = ask_name()
-            image_to_paths = [imgPath + str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
-    
-    text = 'Prenant photos'
-    text2 = 'Veuillez patienter... '
-    
-    if (flag_speech): # Put in the IF-condition in order not to display the message box
-        simple_message(flag_speech, '', text+'. '+text2)
-    
-    nb_img = 0        
-    while (nb_img < nb_img_max):
-        image_path = image_to_paths[nb_img]
-        cv2.imwrite(image_path, image_save)
-        print "Enregistrer photo " + image_path + ", nb de photos prises : " + str(nb_img+1)
-        text3 = str(nb_img+1) + ' ont ete prises, reste a prendre : ' + str(nb_img_max-nb_img-1)
-        nb_img += 1
-        time.sleep(step_time)
-
-    # Display photos that has just been taken
-    if flag_show_photos:
-        thread_show_photos = Thread(target = show_photos, args = (imgPath, name))
-        thread_show_photos.start()
-
-    time.sleep(0.25) 
-    
-    # Allow to retake photos and validate after finish taking
-    thread_retake_validate_photos = Thread(target = retake_validate_photos, args = (step_time, flag_show_photos, imgPath, name))
-    thread_retake_validate_photos.start()
-            
+    ind=1
+    for img_path in image_to_paths:
+        #print img_path
+        img = cv2.imread(img_path)
+        cv2.imshow('Photo '+str(ind), img)
+        height, width = img.shape[:2]
+        cv2.moveWindow('Photo '+str(ind), x, y)
+        x=x+width
+        ind=ind+1
+        
+    cv2.waitKey(5000) # wait a key for 5 seconds
+    for ind in range(nb_img_max):
+        cv2.destroyWindow('Photo '+str(ind+1))
+        
             
 """
+==============================================================================
 Re-identification: when a user is not recognized or not correctly recognized
+==============================================================================
 """
 def re_identification(nb_time_max):
     
@@ -933,7 +935,7 @@ def re_identification(nb_time_max):
         
         get_face_emotion_api_results(flag_speech)
         
-        text, text2, text3 = go_to_formation(excel_filename, name)
+        text, text2, text3 = go_to_formation(xls_filename, name)
         
         return_to_recog() # Return to recognition program immediately or 20 seconds before returning
         
@@ -1077,17 +1079,17 @@ def count_fps():
     MAIN PROGRAM
 ==============================================================================
 """
-root_path    = "C:/Applications/RecoFacialFinal/ReconnaissanceFaciale/"
 
 # Parameters
+root_path    = "C:/Applications/RecoFacialFinal/ReconnaissanceFaciale/"
 cascPath     = "haarcascade_frontalface_default.xml" # path to Haar-cascade training xml file
 imgPath      = "face_database/" # path to database of faces
 suffix       = '.png' # image file extention
 thres        = 80    # Distance threshold for recognition
-wait_time    = 3      # Time needed to wait for recognition
-nb_max_times = 20     # Maximum number of times of good recognition counted in 3 seconds (manually determined, and depends on camera)
+wait_time    = 2      # Time needed to wait for recognition
+nb_max_times = 14     # Maximum number of times of good recognition counted in 3 seconds (manually determined, and depends on camera)
 nb_img_max   = 5      # Number of photos needs to be taken for each user
-excel_filename = 'formation' # Excel file contains Formation information
+xls_filename = 'formation' # Excel file contains Formation information
 nom = ''
 
 # Messages to appear on streaming video (at line 3, 4, 5)
@@ -1226,7 +1228,7 @@ if (optin0==1):
                 if (key==ord('y') or key==ord('Y')): # User chooses Y to go to Formation page
                     flag_wrong_recog  = 0
                     get_face_emotion_api_results(flag_speech)
-                    text, text2, text3 = go_to_formation(excel_filename, nom)
+                    text, text2, text3 = go_to_formation(xls_filename, nom)
 
                     key = 0
                     return_to_recog() # Return to recognition program, after displaying Formation
@@ -1269,7 +1271,7 @@ if (optin0==1):
                             res = allow_go_to_formation_by_id(flag_speech)
                             if (res==1): # User agrees to go to Formation in providing his id manually
                                 name = ask_name()
-                                text, text2, text3 = go_to_formation(excel_filename, name)
+                                text, text2, text3 = go_to_formation(xls_filename, name)
                                 #flag_enable_recog = 0
                                 
                                 # Return to recognition program if user wishs to, if not, wait 20 seconds before returning
