@@ -28,8 +28,8 @@
 		$conversation = $('.result');
 		
 		//var client_id = (Math.floor((Math.random() * 10000))+1).toString();
-		var rand_num = (Math.floor((Math.random() * 10000))).toString();
-		var client_id = "0".repeat(4-rand_num.length) + rand_num;
+		var rand_num = (Math.floor((Math.random() * 100000))).toString();
+		var client_id = "0".repeat(5-rand_num.length) + rand_num;
 		
 		$.post('/start/'+client_id); //TODO
 		
