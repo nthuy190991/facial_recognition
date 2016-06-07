@@ -32,6 +32,7 @@
 		var client_id = "0".repeat(5-rand_num.length) + rand_num;
 		
 		$.post('/start/'+client_id); //TODO
+		$('p.clientId').html(client_id)
 		
 		$('#sendButton').click(function(){
 			submitUserText(client_id);
@@ -170,7 +171,7 @@
 	
 	function submitUserText(client_id) {
 		//alert("Text submitted: " + $("#userInput").val()); 
-        $.post("/textFromHTML/" + client_id + " " + $("#userInput").val()); //TODO
+        $.post('/textFromHTML/' + client_id + ' ' + $('#userInput').val()); //TODO
 	}
 	
 	</script>
@@ -186,6 +187,7 @@
 	</div>
 	<div class='result'>
 		<p>Voici notre dialogue :</p>
+		<p class='clientId'>ClientId : </p>
 		<p></p>
 	</div>
 	
