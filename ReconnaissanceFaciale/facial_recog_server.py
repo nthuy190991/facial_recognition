@@ -280,6 +280,9 @@ def flask_init():
         
         return "",200
 
+	@app.errorhandler(404)
+	def page_not_found(error):
+    	return 'This page does not exist', 404
 
 #    # TODO: Send back result to client
 #    @app.route('/video_feed')
@@ -291,7 +294,8 @@ def flask_init():
 
 
 def flaskThread():
-    app.run(host='0.0.0.0', port = 5000, threaded=True)
+	port = int(os.getenv('PORT', '8000'))
+    app.run(host='0.0.0.0', port = port, threaded=True)
 
 """
 ==============================================================================
