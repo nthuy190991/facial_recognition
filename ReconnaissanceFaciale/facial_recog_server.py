@@ -310,6 +310,7 @@ def flask_init():
         binary_data     = a2b_base64(image)
         data8uint       = np.fromstring(binary_data, np.uint8) # Convert bytestream to an unsigned int array
         frameFromHTML   = cv2.imdecode(data8uint, cv2.IMREAD_COLOR)
+        #time.sleep(0.25)
         
         global global_vars
         global_var  = (item for item in global_vars if item["clientId"] == str(clientId)).next()
@@ -426,7 +427,7 @@ def chrome_stt(clientId): # Speech-to-Text
     t0 = time.time()
     while (global_var['stt'] == ''):
         pass
-        if (time.time()-t0>=8): # Time outs after 8 secs
+        if (time.time()-t0>=7): # Time outs after 8 secs
             global_var['stt'] = '@' # Silence
     resp = global_var['stt']
     return resp
@@ -435,7 +436,7 @@ def chrome_yes_or_no(clientId, question):
 
     chrome_tts(clientId, question) # Ask a question
 
-#    global textFromHTML, todo
+#    global textFromHTML
 
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
@@ -448,8 +449,6 @@ def chrome_yes_or_no(clientId, question):
 
     if (response == ""):
         response = chrome_stt(clientId) # Listen for an answer
-    else:
-        global_var['todo'] = "Confirm: " + response
 
     if not(global_var['flag_quit']):
         if ('oui' in response):
@@ -489,8 +488,9 @@ def video_streaming(clientId):
     time_origine = time.time()
 
     while True:
+    #while (time.time() - time_origine < 30):
         frame = global_var['frameFromHTML'] # Get frame from HTML
-        frame = cv2.flip(frame, 1) # Vertically flip frame
+        #frame = cv2.flip(frame, 1) # Vertically flip frame
         global_var['key'] = cv2.waitKey(1)
         if (global_var['key'] == 27 or global_var['key2'] == 27): # wait for ESC key to exit
             cv2.destroyWindow('ClientId: ' + str(clientId) + ' - Video streaming')
@@ -697,7 +697,7 @@ def take_photos(clientId, step_time, flag_show_photos):
 
     if os.path.exists(imgPath+str(name)+".0"+suffix):
         print u"Les fichiers avec le nom " + str(name) + u" existent déjà"
-        b = yes_or_no(clientId,"Existence de fichiers", u"Les fichiers avec le nom " + str(name) + " existent déjà, écraser ces fichiers ?", 3)
+        b = yes_or_no(clientId,"Existence de fichiers", u"Les fichiers avec le nom " + str(name) + u" existent déjà, écraser ces fichiers ?", 3)
         if (b==1):
             for image_del_path in image_to_paths:
                 os.remove(image_del_path)
@@ -1178,7 +1178,7 @@ def verify_recog(clientId, name):
     return resp
 
 def allow_streaming_video(clientId):
-    resp = yes_or_no(clientId, 'Video Streaming', 'Bonjour ! Autorisez-vous le lancement de la video streaming ?', 4)
+    resp = yes_or_no(clientId, 'Reconnaissance faciale', 'Bonjour ! Voulez-vous lancer la reconnaissance faciale ?', 4)
     return resp
 
 def deja_photos(clientId):

@@ -32,7 +32,7 @@
 		var client_id = "0".repeat(5-rand_num.length) + rand_num;
 		
 		$.post('/start/'+client_id); //TODO
-		$('p.clientId').html(client_id)
+		$('b.clientId').html(client_id)
 		
 		$('#sendButton').click(function(){
 			submitUserText(client_id);
@@ -125,14 +125,6 @@
 				$('<div/>').html(text.concat(txt)).appendTo($conversation);
 			}
 			
-			if (data.indexOf("Confirm:") === 0){
-				window.speechSynthesis.cancel();
-				data = data.substring(9);
-				var text2 = '<b style="color:#0000FF">Vous:</b>&nbsp;'
-				var text3 = data[0].toUpperCase(); // Put first letter on uppercase
-				$('<div/>').html(text2.concat(text3, data.substring(1), " (from userInput)")).appendTo($conversation);
-			}
-			
 			/*if (data === "quit"){
 				//alert("We have to go"); 
 				window.webkitSpeechRecognition.stop();
@@ -172,6 +164,11 @@
 	function submitUserText(client_id) {
 		//alert("Text submitted: " + $("#userInput").val()); 
         $.post('/textFromHTML/' + client_id + ' ' + $('#userInput').val()); //TODO
+		var text  = $('#userInput').val();
+		var text2 = '<b style="color:#0000FF">Vous:</b>&nbsp;'
+		var text3 = text[0].toUpperCase(); // Put first letter on uppercase
+		$('<div/>').html(text2.concat(text3, text.substring(1), " (from userInput)")).appendTo($conversation);
+
 	}
 	
 	</script>
@@ -187,7 +184,7 @@
 	</div>
 	<div class='result'>
 		<p>Voici notre dialogue :</p>
-		<p class='clientId'>ClientId : </p>
+		<p>ClientID : <b class='clientId'></b></p>
 		<p></p>
 	</div>
 	
