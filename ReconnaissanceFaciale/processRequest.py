@@ -7,7 +7,7 @@ Created on Wed May 18 08:19:58 2016
 import requests
 import time
 
-def processRequest( url, json, data, headers, params, maxNumRetries ):
+def processRequest( method, url, json, data, headers, params, maxNumRetries ):
 
     """
     Helper function to process the request to Project Oxford
@@ -23,7 +23,7 @@ def processRequest( url, json, data, headers, params, maxNumRetries ):
 
     while True:
 
-        response = requests.request( 'post', url, json = json, data = data, headers = headers, params = params)
+        response = requests.request( method, url, json = json, data = data, headers = headers, params = params)
 
         if response.status_code == 429: 
 

@@ -199,7 +199,7 @@
 			var msg = new SpeechSynthesisUtterance();
 			var voices = speechSynthesis.getVoices();
 			$conversation = $('.result');
-			$.post('/start'); //TODO
+			$.post('/start');
 			
 			$('#sendButton').click(submitUserText);
 			$("#userInput").keyup(function(event){
@@ -266,17 +266,11 @@
 				if (data.indexOf("TTS") === 0) {
 					data = data.substring(4);
 					startAudio(data);
-					//var text = '<b style="color:#FF0000">Moi:</b>&nbsp;&nbsp;'
-					//$('<div/>').html(text.concat(data)).appendTo($conversation);
-					
+
 					var text2 = data[0].toUpperCase(); // Put first letter on uppercase
 					$( "p.Me" ).html(text2.concat(data.substring(1))).appendTo($conversation);
-					//var t = new Date().getTime();
-					//$( "p.speech-time").html(t.toString()).appendTo($conversation);
+					
 				}
-				/*if (data !== "") {
-					$('<div/>').html(data).appendTo($conversation);
-				}*/
 			});
 		}
 		
@@ -287,7 +281,7 @@
 			$.post("/textFromHTML/" + $("#userInput").val()); //TODO
 			$( "p.You" ).html(text).appendTo($conversation);
 			//$("ul.list-unstyled media-block").append('<li class="mar-btm"><div class="media-body pad-hor"><div class="speech">' + $("avatar2") + $("itsYou") + '<p class="You">'+text+'</p>'+ $("dispTime") + '</div></div></li>');
-			var text2 = "Votre identifiant : ";
+			var text2 = "Vous avez répondu : ";
 			$( "p.Me" ).html(text2.concat(text)).appendTo($conversation);
 		}
 	</script>

@@ -29,7 +29,7 @@ Replace French accents in texts
 """
 def replace_accents(text):
     chars_origine = ['Ê','à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü']
-    chars_replace  = ['E','\xE0', '\xE1', '\xE2', '\xE3', '\xE4', '\xE5', '\xE6', '\xE7', '\xE8', '\xE9', '\xEA', '\xEB', '\xEC', '\xED', '\xEE', '\xEF', '\xF2', '\xF3', '\xF4', '\xF5', '\xF6', '\xF9', '\xFA', '\xFB', '\xFC']
+    chars_replace = ['E','\xE0', '\xE1', '\xE2', '\xE3', '\xE4', '\xE5', '\xE6', '\xE7', '\xE8', '\xE9', '\xEA', '\xEB', '\xEC', '\xED', '\xEE', '\xEF', '\xF2', '\xF3', '\xF4', '\xF5', '\xF6', '\xF9', '\xFA', '\xFB', '\xFC']
     text2 = str_replace_chars(text, chars_origine, chars_replace)
     return text2
     
@@ -74,7 +74,7 @@ def call_face_emotion_api(img):
     headers['Content-Type'] = 'application/octet-stream'
     json = None
 
-    faceResult = processRequest( _url_face, json, data, headers, params, _maxNumRetries )
+    faceResult = processRequest('post', _url_face, json, data, headers, params, _maxNumRetries )
     
     """
     Emotion API
@@ -84,7 +84,7 @@ def call_face_emotion_api(img):
     headers['Content-Type'] = 'application/octet-stream'
     json = None
     
-    emoResult = processRequest( _url_emo, json, data, headers, None, _maxNumRetries )
+    emoResult = processRequest('post', _url_emo, json, data, headers, None, _maxNumRetries )
     
     
     """
