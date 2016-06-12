@@ -6,19 +6,20 @@ Created on Fri Jun 03 05:22:08 2016
 """
 
 import numpy as np
-import os#, sys
-#import cv2
+import os
 import time
 from read_xls import read_xls
 #from edit_xls import edit_xls
 import xlrd
 from threading import Thread
 from flask import Flask, request, render_template#, Response
-from processRequest import processRequest
 import operator
 from binascii import a2b_base64
-#import thread
-from face_api import *
+from watson_developer_cloud import NaturalLanguageClassifierV1
+import face_api
+import emotion_api
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 """
 Replace French accents in texts
@@ -29,11 +30,6 @@ def replace_accents(text):
     text2 = str_replace_chars(text, chars_origine, chars_replace)
     return text2
 
-#def replace_accents2(text):
-#    chars_origine = ['Ê','à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü']
-#    chars_replace  = ['E','a','a','a','a','a','a','ae','c','e','e','e','e','i','i','i','i','o','o','o','o','o','u','u','u','u']
-#    text2 = str_replace_chars(text, chars_origine, chars_replace)
-#    return text2
 """
 Replace characters in a string
 """
@@ -43,10 +39,6 @@ def str_replace_chars(text, chars_origine, chars_replace):
         text  = text2
     return text2
 
-"""
-
-"""
-def person
 
 """
 ==============================================================================
@@ -55,128 +47,107 @@ Face and Emotion API
 """
 def retrieve_face_emotion_att(clientId):
 
-    # Face API and Emotion API Variables
-    _url_face   = 'https://api.projectoxford.ai/face/v1.0/detect'
-    _key_face   = '5d99eec09a7e4b2a916eba7f75671600' # primary key
-    _url_emo    = 'https://api.projectoxford.ai/emotion/v1.0/recognize'
-    _key_emo    = "b226d933ab854505b9b9877cf2f4ff7c" # primary key
-    _maxNumRetries = 10
-
-#    global age, gender, emo
-
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     data = global_var['binary_data']
-    #cv2.imwrite('testImageForAPI.jpg', img)
+        
+    # Face API
+    faceResult = face_api.faceDetect(None, None, data)
+    
+    # Emotion API
+    emoResult = emotion_api.recognizeEmotion(None, None, data)
 
-#    pathToFileInDisk = r'testImageForAPI.jpg'
-#    with open( pathToFileInDisk, 'rb' ) as f:
-#        data = f.read()
-
-    """
-    Face API
-    """
-    # Face detection parameters
-    params = {'returnFaceAttributes': 'age,gender,glasses',
-              'returnFaceLandmarks': 'true'}
-    headers = dict()
-    headers['Ocp-Apim-Subscription-Key'] = _key_face
-    headers['Content-Type'] = 'application/octet-stream'
-    json = None
-
-    faceResult = processRequest('post', _url_face, json, data, headers, params, _maxNumRetries )
-
-    """
-    Emotion API
-    """
-    headers = dict()
-    headers['Ocp-Apim-Subscription-Key'] = _key_emo
-    headers['Content-Type'] = 'application/octet-stream'
-
-    emoResult = processRequest('post', _url_emo, json, data, headers, None, _maxNumRetries )
-
-    """
-    Results
-    """
-    print 'Found {} faces'.format(len(emoResult))
+    # Results
+    print 'Found {} '.format(len(faceResult)) + ('faces' if len(faceResult)!=1 else 'face')
     nb_faces = len(faceResult)
-    tb_age      = ['' for ind in range(nb_faces)]
-    tb_gender   = ['' for ind in range(nb_faces)]
-    tb_glasses  = ['' for ind in range(nb_faces)]
-    tb_emo      = ['' for ind in range(len(emoResult))]
+    tb_face_rect = [{} for ind in range(nb_faces)]
+    tb_age       = ['' for ind in range(nb_faces)]
+    tb_gender    = ['' for ind in range(nb_faces)]
+    tb_glasses   = ['' for ind in range(nb_faces)]
+    tb_emo       = ['' for ind in range(len(emoResult))]
 
     if (len(faceResult)>0 and len(emoResult)>0):
         ind = 0
         for currFace in faceResult:
-            #faceRectangle  = currFace['faceRectangle']
-            faceAttributes  = currFace['faceAttributes']
-            tb_age[ind]     = str(faceAttributes['age'])
-            tb_gender[ind]  = faceAttributes['gender']
-            tb_glasses[ind] = faceAttributes['glasses']
+            faceRectangle       = currFace['faceRectangle']
+            faceAttributes      = currFace['faceAttributes']
+            
+            tb_face_rect[ind]   = faceRectangle
+            tb_age[ind]         = str(faceAttributes['age'])
+            tb_gender[ind]      = faceAttributes['gender']
+            tb_glasses[ind]     = faceAttributes['glasses']
             ind += 1
+            
         ind = 0
         for currFace in emoResult:
             tb_emo[ind] = max(currFace['scores'].iteritems(), key=operator.itemgetter(1))[0]
             ind += 1
             
-        global_var['age']     = tb_age[0] # TODO: replace the first face by the biggest face
-        global_var['gender']  = tb_gender[0]
-        global_var['emo']     = tb_emo[0]
+        faceWidth  = np.zeros(shape=(nb_faces))
+        faceHeight = np.zeros(shape=(nb_faces))
+        for ind in range(nb_faces):
+            faceWidth[ind]  = tb_face_rect[ind]['width']
+            faceHeight[ind] = tb_face_rect[ind]['height']
+        ind_max = np.argmax(faceWidth*faceHeight.T)
         
+        global_var['age']     = tb_age[ind_max]
+        global_var['gender']  = tb_gender[ind_max]
+        global_var['emo']     = tb_emo[ind_max]
+        
+#        global_var['age']     = tb_age[0] # TODO: replace the first face by the biggest face (Done)
+#        global_var['gender']  = tb_gender[0]
+#        global_var['emo']     = tb_emo[0]
+
         return tb_age, tb_gender, tb_glasses, tb_emo
+    else:
+        return 'N/A','N/A','N/A','N/A'
 
 """
 Yield Face and Emotion API results
 """
 def get_face_emotion_api_results(clientId):
-    #global age, gender, emo
 
     resp = detect_face_attributes(clientId)
     if (resp==1):
 
-        t0 = time.time()
+        print 'Calling APIs to retrieve facial and emotional attributes, please wait'
         tb_age, tb_gender, tb_glasses, tb_emo = retrieve_face_emotion_att(clientId)
 
-        # Translate emotion to french
-        tb_emo_eng = ['happiness', 'sadness', 'surprise', 'anger', 'fear',
-                  'contempt', 'disgust', 'neutral']
-        tb_emo_correspond = ['êtes joyeux', 'êtes trist', 'êtes surprise',
-                             'êtes en colère', 'avez peur', 'êtes mépris',
-                             'êtes dégoût', 'êtes neutre']
-
-        # Translate glasses to french
-        tb_glasses_eng = ['NoGlasses', 'ReadingGlasses',
-                      'sunglasses', 'swimmingGoggles']
-        tb_glasses_correspond = ['ne portez pas de lunettes',
-                                 'portez des lunettes',
-                                 'portez des lunettes de soleil',
-                                 'portez des lunettes de natation']
-
-        for ind in range(len(tb_age)):
-            glasses_str = tb_glasses_correspond[tb_glasses_eng.index(tb_glasses[ind])]
-            emo_str     = tb_emo_correspond[tb_emo_eng.index(tb_emo[ind])]
-            textToSpeak = "Bonjour " + ('Monsieur' if tb_gender[ind] =='male' else 'Madame') + \
-                ", vous avez " + tb_age[ind].replace('.',',') + " ans, vous " + emo_str + \
-                ", et vous " + glasses_str
-            simple_message(clientId, 'Attributs faciales', textToSpeak)
-
-        print 'Call Face and Emotion API: ' + str(time.time()-t0) + ' seconds'
-
-#        cv2.waitKey(3000)
-#        age    = ''
-#        gender = ''
-#        emo    = ''
-
+        if ([tb_age, tb_gender, tb_glasses, tb_emo] != ['N/A','N/A','N/A','N/A']):
+            # Translate emotion to french
+            tb_emo_eng = ['happiness', 'sadness', 'surprise', 'anger', 'fear',
+                          'contempt', 'disgust', 'neutral']
+            tb_emo_correspond = ['joyeux', 'trist', 'surprise',
+                                 'en colère', "d'avoir peur", ' mépris',
+                                 'dégoût', 'neutre']
+    
+            # Translate glasses to french
+            tb_glasses_eng = ['NoGlasses', 'ReadingGlasses',
+                              'sunglasses', 'swimmingGoggles']
+            tb_glasses_correspond = ['ne portez pas de lunettes',
+                                     'portez des lunettes',
+                                     'portez des lunettes de soleil',
+                                     'portez des lunettes de natation']
+    
+            for ind in range(len(tb_age)):
+                glasses_str = tb_glasses_correspond[tb_glasses_eng.index(tb_glasses[ind])]
+                emo_str     = tb_emo_correspond[tb_emo_eng.index(tb_emo[ind])]
+                textToSpeak = "Bonjour " + ('Monsieur' if tb_gender[ind] =='male' else 'Madame') + \
+                    ", vous avez " + tb_age[ind].replace('.',',') + " ans, votre état d'émotion est " + emo_str + \
+                    ", et vous " + glasses_str
+                simple_message(clientId, 'Attributs faciales', textToSpeak)
+            # print 'Call Face and Emotion API: ' + str(time.time()-t0) + ' seconds'
+        else:
+            print 'Found no faces'
+            simple_message(clientId, 'Attributs faciales', u'Désolé, aucun visage trouvé')
 
 """
 Ask a name or id as a string
 """
 def ask_name(clientId, flag):
-#    global text, text2, text3, textFromHTML
-
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-        
+
     global_var['text']  = ''
     global_var['text2'] = ''
     global_var['text3'] = "Donnez-moi votre identifiant, s'il vous plait !"
@@ -191,245 +162,32 @@ def ask_name(clientId, flag):
 
     return res
 
-#"""
-#Using Haar Cascade detector to detect faces from a grayscale image
-#"""
-#def detect_faces(faceCascade, gray):
-#    faces = faceCascade.detectMultiScale(
-#        gray,
-#        scaleFactor  = 1.1,
-#        minNeighbors = 5,
-#        minSize      = (50, 50),
-#        flags        = cv2.cv.CV_HAAR_SCALE_IMAGE
-#    )
-#    return faces
-#
-
-#"""
-#Get all images in database alongside with their labels
-#"""
-#def get_images_and_labels(path, list_nom):
-#
-#    image_paths = [os.path.join(path, f) for f in os.listdir(path)]
-#
-#    images = [] # images will contains face images
-#    labels = [] # labels which are assigned to the image
-#
-#    for image_path in image_paths:
-#        # Read the image
-#        image = cv2.imread(image_path)
-#        # Convert to grayscale
-#        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-#        # Get the label of the image
-#        nom = os.path.split(image_path)[1].split(".")[0]
-#        if nom not in list_nom:
-#            list_nom.append(nom)
-#
-#        nbr = list_nom.index(nom) + 1
-#
-#        images.append(gray)
-#        labels.append(nbr)
-#
-#    # return the images list and labels list
-#    return images, labels
-
-
-"""
-==============================================================================
-Flask Initialization
-==============================================================================
-"""
-def flask_init():
-    global app
-#    global clientId, todo, stt, textFromHTML
-#
-#    todo = ""
-#    stt  = ""
-#    textFromHTML = ""
-
-    app  = Flask(__name__)
-
-    @app.route('/')
-    def render_hmtl():
-        return render_template('index.html')
-
-    @app.route('/start/<clientId>', methods=['POST'])
-    def onStart(clientId):
-#        global thread_program
-#        global flag_thread_started
-#        global HTML_refresh
-#        HTML_refresh = True
-        
-        global_var_init(clientId)
-        
-        #time.sleep(0.5)
-
-        thread_program = Thread(target = run_program, args= (clientId,), name = 'thread_prog_'+clientId)
-        thread_program.start()
-              
-#        flag_thread_started = 1
-        return "", 200
-
-    @app.route('/StT/<data>', methods=['POST'])
-    def runSpeechToText(data):
-        clientId = data[0:5]
-        text     = data[6:]
-#        global stt
-#        stt = text
-        global global_vars
-        global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-        global_var['stt'] = text
-        #print 'StT', clientId, text
-        return "", 200
-
-    @app.route('/textFromHTML/<data>', methods=['POST'])
-    def getTextFromHTML(data):
-#        global textFromHTML
-        clientId = data[0:5]
-        text     = data[6:]
-#        textFromHTML = text
-        global global_vars
-        global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-        global_var['textFromHTML'] = text
-        #print 'textFromHTML', clientId, text
-        return "", 200
-
-    @app.route('/longpolling/<clientId>', methods=['POST'])
-    def longPolling(clientId):
-        time.sleep(0.5)
-#        global todo
-#        temp = todo
-#        #if temp!="": print temp
-#        todo = ""
-        global global_vars
-        global_var  = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-        temp        = global_var['todo']
-        global_var['todo'] = ""
-        return temp, 200
-
-    @app.route('/image', methods=['POST'])
-    def getImage():
-#        global frameFromHTML, binary_data, clientId
-        clientId        = request.get_json(force=True)["client_id"]
-        image           = request.get_json(force=True)["img"]
-        image           = image.split(",")[1]
-        binary_data     = a2b_base64(image)
-#        data8uint       = np.fromstring(binary_data, np.uint8) # Convert bytestream to an unsigned int array
-#        frameFromHTML   = cv2.imdecode(data8uint, cv2.IMREAD_COLOR)
-        #time.sleep(0.25)
-        
-        global global_vars
-        global_var  = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-        global_var['binary_data']   = binary_data
-        #global_var['frameFromHTML'] = frameFromHTML
-        
-        return "",200
-
-
-#    # TODO: Send back result to client
-#    @app.route('/video_feed')
-#    def video_feed():
-#        _, jpeg = cv2.imencode('.jpg', frame)
-#        return Response(b'--frame\r\n'
-#           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes()
-#           + b'\r\n\r\n', mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
-def flaskThread():
-    app.run(host='0.0.0.0', port = 5000, threaded=True)
 
 """
 ==============================================================================
 Dialogue from Chrome
 ==============================================================================
 """
-#def chrome_tts(text): # Text-to-Speech
-#    global todo
-#    todo = "TTS " + text # TODO: How to know when a text is finished speaking
-#
-#    # Calculate the time needed to wait, until the TTS is finished
-#    text2 = str_replace_chars(text, [' ?',' !',' :',' ;'], ['?','!',':',';'])
-#    nbOfWords  = len(text2.split())
-#    rate = 1.1 # speech rate (which is set in hello.html)
-#    timeNeeded = float(nbOfWords)/130/rate*60 # Average words-per-min = 130
-#    time.sleep(timeNeeded)
-#
-#def chrome_stt(): # Speech-to-Text
-#    global todo
-#    global stt
-#    stt  = ''
-#    todo = 'STT'
-#    t0   = time.time()
-#    while (stt==''):
-#        pass
-#        if (time.time()-t0>=8): # Time outs after 8 secs
-#            stt = '@' # Silence
-#    resp = stt
-#    return resp
-#
-#def chrome_yes_or_no(question):
-#    chrome_tts(question) # Ask a question
-#
-#    global textFromHTML, todo
-#    t0 = time.time()
-#    while ((textFromHTML=="") and (time.time()-t0<5)):
-#        pass
-#    response = textFromHTML # Get answer from userInput during 5 seconds
-#    textFromHTML = ""
-#
-#    if (response == ""):
-#        response = chrome_stt() # Listen for an answer
-#    else:
-#        todo = "Confirm: " + response
-#
-#    if not(flag_quit):
-#        if ('oui' in response):
-#            result = 1
-#        elif ('non' in response):
-#            result = 0
-#        elif (response == '@'):
-#            result, response = chrome_yes_or_no(clientId,"Je ne vous entends pas, veuillez répéter")
-#            #chrome_tts("Je ne vous entends pas, veuillez répéter")
-#            #response = chrome_stt()
-#        else:
-#            result, response = chrome_yes_or_no(clientId,"Je ne vous comprends pas, veuillez répéter")
-#            #chrome_tts("Je ne vous comprends pas, veuillez répéter")
-#            #response = chrome_stt()
-#        #chrome_tts("Vous avez répondu: " + response)
-#    else:
-#        result = -1
-#        response = ''
-#    return result, response
-
 
 def chrome_tts(clientId, text): # Text-to-Speech
-#    global todo
-#    todo = "TTS " + clientId + " " + text # TODO: How to know when a text is finished speaking
-#    #todo = "TTS "
-    
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     global_var['todo'] = "TTS " + str(clientId) + " " + text
     global_var['tts']  = text
-    
+
     # Calculate the time needed to wait, until the TTS is finished
     text2 = str_replace_chars(text, [' ?',' !',' :',' ;'], ['?','!',':',';'])
     nbOfWords  = len(text2.split())
-    rate = 1.1 # speech rate (which is set in index.html)
+    rate = 1.2 # speech rate (which is set in index.html)
     timeNeeded = float(nbOfWords)/130/rate*60 # Average words-per-min = 130
     time.sleep(timeNeeded)
 
 def chrome_stt(clientId): # Speech-to-Text
-#    global todo
-#    global stt
-#    stt  = ''
-#    todo = 'STT'
-
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     global_var['todo'] = 'STT'
     global_var['stt']  = ''
-    
+
     t0 = time.time()
     while (global_var['stt'] == ''):
         pass
@@ -442,13 +200,11 @@ def chrome_yes_or_no(clientId, question):
 
     chrome_tts(clientId, question) # Ask a question
 
-#    global textFromHTML
-
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-    
+
     t0 = time.time()
-    while ((global_var['textFromHTML']=="") and (time.time()-t0<3)):
+    while ((global_var['textFromHTML']=="") and (time.time()-t0<5)):
         pass
     response = global_var['textFromHTML'] # Get answer from userInput during 3 seconds
     global_var['textFromHTML'] = ""
@@ -456,167 +212,36 @@ def chrome_yes_or_no(clientId, question):
     if (response == ""):
         response = chrome_stt(clientId) # Listen for an answer
 
+    if (response == '@'):
+        result, response = chrome_yes_or_no(clientId, u"Je ne vous entends pas, veuillez répéter")
+
+    # Apply Natural Language Classifier
+    classes = natural_language_classifier.classify('2374f9x68-nlc-1265', response)
+    responseYesOrNo = classes["top_class"]
+
     if not(global_var['flag_quit']):
-        if ('oui' in response):
+        if (responseYesOrNo=='oui'):
             result = 1
-        elif ('non' in response):
+        elif (responseYesOrNo=='non'):
             result = 0
-        elif (response == '@'):
-            result, response = chrome_yes_or_no(clientId, u"Je ne vous entends pas, veuillez répéter")
-            #chrome_tts("Je ne vous entends pas, veuillez répéter")
-            #response = chrome_stt()
-        else:
-            result, response = chrome_yes_or_no(clientId, u"Je ne vous comprends pas, veuillez répéter")
-            #chrome_tts("Je ne vous comprends pas, veuillez répéter")
-            #response = chrome_stt()
-        #chrome_tts("Vous avez repondu: " + response)
+        elif (responseYesOrNo=='not_relevant'):
+            result, response = chrome_yes_or_no(clientId, u"Votre réponse n'est pas pertinente, veuillez ré-répondre")
     else:
         result   = -1
-        response = ''
+        responseYesOrNo = ''
     return result, response
 
-"""
-Streaming video
-"""
-
-def video_streaming(clientId): #TODO: not use Opencv
-    global global_vars
-    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-    
-    time_origine = time.time()
-    while (time.time() - time_origine > 10):
-        data = global_var['binary_data']
-        
-    
-    
-#"""
-#==============================================================================
-#Streaming Video: runs streaming video independently with other activities
-#==============================================================================
-#"""
-#def video_streaming(clientId):
-#    global global_vars
-#    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-#       
-##    #global frame
-##    global image_save
-##    global key
-##    global tb_nb_times_recog
-##    global flag_quit
-#
-#    time_origine = time.time()
-#
-#    while True:
-#    #while (time.time() - time_origine < 30):
-#        frame = global_var['frameFromHTML'] # Get frame from HTML
-#        #frame = cv2.flip(frame, 1) # Vertically flip frame
-#        global_var['key'] = cv2.waitKey(1)
-#        if (global_var['key'] == 27 or global_var['key2'] == 27): # wait for ESC key to exit
-#            cv2.destroyWindow('ClientId: ' + str(clientId) + ' - Video streaming')
-#            #cv2.destroyAllWindows()
-#            #flag_quit = 1
-#            global_var['flag_quit'] = 1 # Use global_vars
-#            break
-#
-#        """
-#        Face Detection part
-#        """
-#        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Convert frame to a grayscale image
-#        faces = detect_faces(faceCascade, gray) # Detect faces on grayscale image
-#
-#        """
-#        Recognition part
-#        """
-#        for (x, y, w, h) in faces:
-#            if (len(faces)>1): # Consider only the biggest face appears in the video
-#                w_vect = faces.T[2,:]
-#                h_vect = faces.T[3,:]
-#                x0, y0, w0, h0 = faces[np.argmax(w_vect*h_vect)]
-#            elif (len(faces)==1): # If there is only one face
-#                x0, y0, w0, h0 = faces[0]
-#
-#            if not global_var['flag_disable_detection']:
-#                cv2.rectangle(frame, (x0, y0), (x0+w0, y0+h0), (25, 199, 247), 1) # Draw a rectangle around the biggest face
-#                #cv2.rectangle(frame, (x, y), (x+w, y+h), (25, 199, 247), 1) # Draw a rectangle around the faces
-#
-#            if (len(faces)>=1):
-#                global_var['image_save'] = gray[y0 : y0 + h0, x0 : x0 + w0]
-#                nbr_predicted, conf      = recognizer.predict(global_var['image_save']) # Predict function
-#
-#                global_var['nom'] = list_nom[nbr_predicted-1] # Get resulting name
-#
-#                if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
-#                    if not global_var['flag_disable_detection']:
-#                        txt = global_var['nom'] + ', distance: ' + str(conf)
-#                        message_xy(frame, txt, x0, y0-5, 'w', 1)
-#                    
-#                    global_var['tb_nb_times_recog'][nbr_predicted-1] = global_var['tb_nb_times_recog'][nbr_predicted-1] + 1 # Increase nb of recognize times
-#                    
-#                message_xy(frame, global_var['age'],    x0+w0, y0, 'b', 1)
-#                message_xy(frame, global_var['gender'], x0+w0, y0+10, 'b', 1)
-#                message_xy(frame, global_var['emo'],    x0+w0, y0+20, 'b', 1)
-#
-#        # End of For-loop
-#
-#        # Texts to display on video
-#        count_time = time.time() - time_origine
-#        fps = count_fps()
-#
-#        message(frame, "Time: " + str(count_time)[0:4], 0, 1, 'g', 2)
-#        message(frame, "FPS: "  + str(fps)[0:5],        0, 2, 'g', 1)
-#        message(frame, global_var['text'],  0, 3, 'g', 1)
-#        message(frame, global_var['text2'], 0, 4, 'g', 1)
-#        message(frame, global_var['text3'], 0, 5, 'g', 1)
-#
-#        # Frame display
-#        cv2.imshow('ClientId: ' + str(clientId) + ' - Video streaming', frame)
-#
-#    cv2.destroyWindow('ClientId: ' + str(clientId) + ' - Video streaming')
-#    #quit_program()
-#
-#"""
-#Put Texts on frame to display on streaming video at a predefined position (row,column)
-#"""
-#def message(frame, text, col, line, color, thickness):
-#    height, width = frame.shape[:2]
-#    if (col==0): x = 10
-#    if (line==1):
-#        y = 20
-#    elif (line==2):
-#        y = 40
-#    elif (line==3):
-#        y = height-50
-#    elif (line==4):
-#        y = height-30
-#    elif (line==5):
-#        y = height-10
-#    message_xy(frame, text, x, y, color, thickness)
-#
-#"""
-#Put texts on frame to display on streaming video at position (x,y)
-#"""
-#def message_xy(frame, text, x, y, color, thickness):
-#    if color=='r':
-#        rgb = (0, 0, 255)
-#    elif color=='g':
-#        rgb = (0, 255, 0)
-#    elif color=='b':
-#        rgb = (255, 0, 0)
-#    elif color=='w':
-#        rgb = (255, 255, 255)
-#    cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_PLAIN, 1.0, rgb, thickness, lineType=cv2.CV_AA)
-
 
 """
+==============================================================================
 Display Formation Panel for a recognized or username-known user
+==============================================================================
 """
 def go_to_formation(clientId, xls_filename, name):
-    
+
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
 
-#    global flag_disable_detection, flag_enable_recog, text, text2, text3
-    
     global_var['flag_disable_detection'] = 1 # Disable the detection when entering Formation page
     global_var['flag_enable_recog']      = 0
 
@@ -629,7 +254,6 @@ def go_to_formation(clientId, xls_filename, name):
         global_var['text3'] = "Veuillez contacter contact@orange.com"
     else:
         mail_idx = tb_formation[0][:].index('Mail')
-
         # Get mail list
         mail_list = []
         for idx in range(0, len(tb_formation)):
@@ -648,15 +272,11 @@ def go_to_formation(clientId, xls_filename, name):
 Return to recognition program after displaying Formation
 """
 def return_to_recog(clientId):
-    
+
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
 
-#    global flag_disable_detection, flag_enable_recog, flag_ask, flag_reidentify
-
     if not global_var['flag_quit']:
-        #cv2.waitKey(5000)
-        time.sleep(2)
         resp_quit_formation = quit_formation(clientId)
         if (resp_quit_formation == 0):
             time.sleep(5) # wait for more 5 seconds before quitting
@@ -671,7 +291,7 @@ Find valid username
 """
 def reform_username(name):
 
-    if (name=='huy' or name=='huy_new'):
+    if (name=='huy' or name=='GGQN0871'):
         firstname    = 'thanhhuy'
         lastname     = 'nguyen'
         email_suffix = '@orange.com'
@@ -706,12 +326,14 @@ Taking photos
 ==============================================================================
 """
 def take_photos(clientId, step_time, flag_show_photos):
-    
+
     global global_vars
-    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()  
-    
+    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+
     name = ask_name(clientId, 1)
-#    global text, text2, text3
+
+    personId = face_api.createPerson(groupId, name, "")
+    list_personId.append(personId)
 
     image_to_paths = [imgPath+str(name)+"."+str(i)+suffix for i in range(nb_img_max)]
 
@@ -728,12 +350,15 @@ def take_photos(clientId, step_time, flag_show_photos):
     global_var['text']  = 'Prenant photos'
     global_var['text2'] = 'Veuillez patienter... '
 
-    simple_message(clientId, '', global_var['text']+', '+global_var['text2'])
+    simple_message(clientId, '', global_var['text'] + ', ' + global_var['text2'])
 
     nb_img = 0
     while (nb_img < nb_img_max):
         image_path = image_to_paths[nb_img]
-        cv2.imwrite(image_path, global_var['image_save'])
+        with open(image_path, 'wb') as f:
+            f.write(global_var['binary_data'])
+            f.close()
+
         print "Enregistrer photo " + image_path + ", nb de photos prises : " + str(nb_img+1)
         global_var['text3'] = str(nb_img+1) + ' ont ete prises, reste a prendre : ' + str(nb_img_max-nb_img-1)
         nb_img += 1
@@ -747,20 +372,17 @@ def take_photos(clientId, step_time, flag_show_photos):
     time.sleep(0.5)
 
     # Allow to retake photos and validate after finish taking
-    thread_retake_validate_photos = Thread(target = retake_validate_photos, args = (clientId, step_time, flag_show_photos, imgPath, name), name = 'thread_retake_validate_photos_'+clientId)
+    thread_retake_validate_photos = Thread(target = retake_validate_photos, args = (clientId, personId, step_time, flag_show_photos, imgPath, name), name = 'thread_retake_validate_photos_'+clientId)
     thread_retake_validate_photos.start()
 
 
 """
 Retaking and validating photos
 """
-def retake_validate_photos(clientId, step_time, flag_show_photos, imgPath, name):
+def retake_validate_photos(clientId, personId, step_time, flag_show_photos, imgPath, name):
 
     global global_vars
-    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()  
-    
-#    global flag_enable_recog, flag_ask, flag_wrong_recog
-#    global text, text2, text3
+    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
 
     # Ask users if they want to change photo(s) or validate them
     b = validate_photo(clientId)
@@ -770,17 +392,11 @@ def retake_validate_photos(clientId, step_time, flag_show_photos, imgPath, name)
         global_var['text3'] = "Veuillez repondre"
         simple_message(clientId, '', u"Veuillez répondre quelles photos que vous voulez changer ?")
 
-#        global textFromHTML
-#        while (textFromHTML == ""):
-#            pass
-#        nb = textFromHTML
-#        textFromHTML = ""
-
         while (global_var['textFromHTML'] == ""):
             pass
         nb = global_var['textFromHTML']
         global_var['textFromHTML'] = ""
-        
+
         if ('-' in nb):
             nb2 = ''
             for i in range(int(nb[0]), int(nb[2])+1):
@@ -807,9 +423,13 @@ def retake_validate_photos(clientId, step_time, flag_show_photos, imgPath, name)
             global_var['text3'] = str(j) + ' ont ete prises, reste a prendre : ' + str(len(nb)-j)
             time.sleep(step_time)
             print "Reprendre photo ", nb[j]
+            #TODO: add a facedetect here to cut the face from image
             image_path = image_to_paths[int(nb[j])-1]
             os.remove(image_path) # Remove old image
-            cv2.imwrite(image_path, global_var['image_save'])
+            with open(image_path, 'wb') as f:
+                f.write(global_var['binary_data'])
+                f.close()
+
             print "Enregistrer photo " + image_path + ", nb de photos prises : " + nb[j]
 
         a = yes_or_no(clientId, 'Nouvelles photos', u'Reprise de photos finie, souhaitez-vous réviser vos photos ?', 4)
@@ -825,38 +445,38 @@ def retake_validate_photos(clientId, step_time, flag_show_photos, imgPath, name)
             break
     # End of While(b==0)
 
-    # Update recognizer after taking and validating photos
-    images, labels = get_images_and_labels(imgPath, list_nom)
-    recognizer.update(images, np.array(labels))
-    print u"Recognizer a été mis a jour..."
+    print "Adding faces to person group..."
+    image_to_paths = [root_path+imgPath+str(name)+"."+str(j)+suffix for j in range(nb_img_max)]
+    for image_path in image_to_paths:
+        face_api.addPersonFace(groupId, personId, None, image_path, None)
 
+    # Retrain Person Group
+    resultTrainPersonGroup = face_api.trainPersonGroup(groupId)
+    print "Re-train Person Group: ", resultTrainPersonGroup
+    
     global_var['flag_enable_recog'] = 1  # Re-enable recognition
-    global_var['flag_ask'] = 1 # Reset asking    
-    #flag_wrong_recog = 0 # Reset wrong recognition flag
+    global_var['flag_ask'] = 1 # Reset asking
 
 
 """
 Display photos that have just been taken, close them if after 5 seconds or press any key
 """
 def show_photos(clientId, imgPath, name):
-    x = 100; y = 600
 
     image_to_paths = [root_path + imgPath + str(name) + "." + str(j) + suffix for j in range(nb_img_max)]
 
-    ind = 1
     for img_path in image_to_paths:
-        #print img_path
-        img = cv2.imread(img_path)
-        cv2.imshow('clientId '+clientId+' - Photo '+str(ind), img)
-        height, width = img.shape[:2]
-        cv2.moveWindow('clientId '+clientId+' - Photo '+str(ind), x, y)
-        x   += width
-        ind += 1
+        print 'display', img_path
+        plt.figure()
+        img = mpimg.imread(img_path)
+        plt.imshow(img)
+    plt.show()
 
-    cv2.waitKey(7000) # wait a key for 7 seconds
+    time.sleep(5) # wait 5 secs
     for ind in range(nb_img_max):
-        cv2.destroyWindow('clientId '+clientId+' - Photo '+str(ind+1))
-
+        plt.close("all")
+        
+        
 """
 ==============================================================================
 Re-identification: when a user is not recognized or not correctly recognized
@@ -865,13 +485,10 @@ Re-identification: when a user is not recognized or not correctly recognized
 def re_identification(clientId, nb_time_max, name0):
 
     simple_message(clientId, 'Autre positionnement', u'Veuillez rapprocher vers la camera, ou bouger votre tête')
-    
+
     global global_vars
-    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()    
-    
-    #global flag_enable_recog, flag_ask, flag_take_photo, flag_wrong_recog, flag_reidentify
-    
-    
+    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+
     tb_old_name    = np.chararray(shape=(nb_time_max+1), itemsize=10) # Old recognition results, which are wrong
     tb_old_name[:] = ''
     tb_old_name[0] = name0
@@ -879,14 +496,14 @@ def re_identification(clientId, nb_time_max, name0):
     nb_time = 0
     global_var['flag_enable_recog'] = 1
     global_var['flag_reidentify']   = 1
-    time.sleep(wait_time) # wait until after the first re-identification is done
     global_var['flag_ask'] = 0
+
+    time.sleep(wait_time) # wait until after the first re-identification is done
+
     a = 0
     while (nb_time < nb_time_max):
-        #time.sleep(2)
         name1 = global_var['nom'] # New result
         #print tb_old_name
-        # TODO: if unknown person --> Count instead of retrying (done, but should be verified)
 
         if np.all(tb_old_name != name1) and global_var['flag_recog']: # if new result is different to old results
             print 'Essaie ' + str(nb_time+1) + ': reconnu comme ' + str(name1)
@@ -928,7 +545,7 @@ def re_identification(clientId, nb_time_max, name0):
         global_var['flag_reidentify']   = 0
         simple_message(clientId, u'Problème méconnaissable', u'Désolé je vous reconnaît pas, veuillez me donner votre identifiant')
 
-        name = ask_name(clientId, 1)
+        name = ask_name(clientId, 0)
         if os.path.exists(imgPath+str(name)+".0"+suffix): # Assume that user's face-database exists if the photo 0.png exists
             simple_message(clientId, 'Reprise de photos', 'Bonjour '+ str(name)+', je vous conseille de changer vos photos')
             flag_show_photos = 1
@@ -953,83 +570,49 @@ def run_program(clientId):
 
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-    
-    
-#    flag_enable_recog   = global_var['flag_enable_recog']
-#    flag_ask            = global_var['flag_ask']
-#    flag_recog          = global_var['flag_recog']
-#    flag_wrong_recog    = global_var['flag_wrong_recog']
-#    flag_reidentify     = global_var['flag_reidentify']
-#    flag_take_photo     = global_var['flag_take_photo']
-#    flag_quit           = global_var['flag_quit']
-#    text                = global_var['text']
-#    text2               = global_var['text2']
-#    text3               = global_var['text3']
-#    key                 = global_var['key']
-#    key2                = global_var['key2']
-#    tb_nb_times_recog   = global_var['tb_nb_times_recog']
-#    nom                 = global_var['nom']
-    
-    
-    
-#    # Global variables
-#    global flag_enable_recog, flag_ask, flag_recog, flag_wrong_recog, flag_reidentify, flag_take_photo, flag_quit
-#    global text, text2, text3
-#    global tb_nb_times_recog, nom
-#    global key2
-#    global thread_video
 
     # Autorisation to begin Streaming Video
     optin0 = allow_streaming_video(clientId)
 
     if (optin0 == 1):
         global_var['key']       = 0
-        global_var['flag_quit'] = 0
 
         # Thread of streaming video
-        thread_video = Thread(target = video_streaming, args = (clientId,), name = 'thread_video_' + clientId)
-        thread_video.start()
-
-#        # Table of number of times that a face is correctly recognized
-#        tb_nb_times_recog = np.empty(len(list_nom))
-#        tb_nb_times_recog.fill(0) # initialize with all zeros
-
-#        time.sleep(0.25) # Time needed to start the thread of streaming video
-
         start_time   = time.time() # For recognition timer (will reset after each 3 secs)
         time_origine = time.time() # For display (unchanged)
 
         """
         Permanent loop
         """
-        while True:
-
-            # Break While-loop and quit program as soon as the Esc key is pressed
-            if (global_var['key'] == 27):
-#                time.sleep(0.5)
-#                thread_video.join()
-#                print 'Join streaming video thread'
-                break
+        while (time.time() - time_origine < 120):
+            data = global_var['binary_data']
 
             """
             Decision part
             """
-            if not (global_var['flag_quit']): #TODO: new
-                global_var['key2'] = cv2.waitKey(1)
-                if (global_var['key2'] == 27):# or HTML_refresh:
-                    break
-                elapsed_time = time.time() - start_time
-                if ((elapsed_time > wait_time) and global_var['flag_enable_recog']): # Identify after each 3 seconds
-                    if (max(global_var['tb_nb_times_recog']) >= nb_max_times/2): # If the number of times recognized is big enough
+            elapsed_time = time.time() - start_time
+            if ((elapsed_time > wait_time) and global_var['flag_enable_recog']): # Identify after each 3 seconds
+                faceDetectResult    = face_api.faceDetect(None, None, data)
+                if len(faceDetectResult)>=1:
+                    new_faceId          = faceDetectResult[0]['faceId']
+                    resultIdentify      = face_api.faceIdentify(groupId, [new_faceId], maxNbOfCandidates)
+                    
+                    if len(resultIdentify[0]['candidates'])>=1: # If the number of times recognized is big enough
                         global_var['flag_recog']  = 1 # Known Person
                         global_var['flag_ask']    = 0
-                        global_var['nom'] = list_nom[np.argmax(global_var['tb_nb_times_recog'])] # Get name of recognizing face
+                        recognizedPersonId  = resultIdentify[0]['candidates'][0]['personId']
+                        recognizedPerson    = face_api.getPerson(groupId, recognizedPersonId)
+                        recognizedPerson    = recognizedPerson.replace('null','None')
+                        recognizedPerson    = eval(recognizedPerson)
+                        global_var['nom']   = recognizedPerson['name']
                         global_var['text']  = 'Reconnu : ' + global_var['nom']
-                        
+
+                        print global_var['text']
+
                         if (not global_var['flag_reidentify']):
                             global_var['text2'] = "Appuyez [Y] si c'est bien vous"
                             global_var['text3'] = "Appuyez [N] si ce n'est pas vous"
-                            
+
                             res_verify_recog = verify_recog(clientId, global_var['nom'])
                             if (res_verify_recog==1):
                                 global_var['key'] = ord('y')
@@ -1038,121 +621,105 @@ def run_program(clientId):
 
                     else: # If the number of times recognized anyone from database is too low
                         global_var['flag_recog'] = 0 # Unknown Person
-                        #nom = '' # XXX: new: à vérifier
                         global_var['text']  = 'Personne inconnue'
                         global_var['text2'] = ''
                         global_var['text3'] = ''
-                            
+
                         if (not global_var['flag_reidentify']):
                             global_var['flag_ask'] = 1
                             simple_message(clientId, '', u'Désolé, je ne vous reconnaît pas')
-
-                    global_var['tb_nb_times_recog'].fill(0) # reinitialize with all zeros
-                    
-                    start_time = time.time()  # reset timer
-
-                """
-                Redirecting user based on recognition result and user's status (already took photos or not) in database
-                """
-                count_time = time.time() - time_origine
-                if (count_time <= wait_time):
-                    global_var['text3'] = 'Initialisation (pret dans ' + str(wait_time-count_time)[0:4] + ' secondes)...'
-                    
-                    if (global_var['flag_quit']):
-#                        time.sleep(0.5)
-#                        thread_video.join()
-#                        print "Let's get the hell out of here"
-                        break
                 else:
-                    """
-                    Start Redirecting after the first 3 seconds
-                    """
-                    if (global_var['flag_quit']):
-#                        time.sleep(0.5)
-#                        thread_video.join()
-#                        print "Let's get the hell out of here"
-                        break
-                    
-                    if (global_var['flag_recog']):
-                        if (global_var['key']==ord('y') or global_var['key']==ord('Y')): # User chooses Y to go to Formation page
-                            global_var['flag_wrong_recog']  = 0
-                            get_face_emotion_api_results(clientId)
-                            global_var['text'], global_var['text2'], global_var['text3'] = go_to_formation(clientId, xls_filename, global_var['nom'])
+                    global_var['flag_recog'] = -1
+                    global_var['text']  = 'Aucune personne'
+                    global_var['text2'] = ''
+                    global_var['text3'] = ''
 
-                            global_var['key'] = 0
-                            return_to_recog(clientId) # Return to recognition program, after displaying Formation
+                start_time = time.time()  # reset timer
 
-                        if (global_var['key']==ord('n') or global_var['key']==ord('N')): # User confirms that the recognition result is wrong by choosing N
-                            global_var['flag_wrong_recog'] = 1
-                            global_var['flag_ask'] = 1
-                            global_var['key'] = 0
-        #                    thres = thres - 10 # Reduce threshold
-        #                    print u'Réduire threshold à ' + str(thres)
+            """
+            Redirecting user based on recognition result and user's status (already took photos or not) in database
+            """
+            count_time = time.time() - time_origine
+            if (count_time <= wait_time):
+                global_var['text3'] = 'Initialisation (pret dans ' + str(wait_time-count_time)[0:4] + ' secondes)...'
 
-                    if ((global_var['flag_recog'] and global_var['flag_wrong_recog']) or (not global_var['flag_recog'])): # Not recognized or not correctly recognized
-                        if (global_var['flag_ask']):# and (not flag_quit)):
-                            resp_deja_photos = deja_photos(clientId) # Ask user if he has already had a database of face photos
+            else:
+                """
+                Start Redirecting after the first 1.5 seconds
+                """
 
-                            if (resp_deja_photos==-1):
-                                global_var['flag_ask'] = 0
+                if (global_var['flag_recog']==1):
+                    if (global_var['key']==ord('y') or global_var['key']==ord('Y')): # User chooses Y to go to Formation page
+                        global_var['flag_wrong_recog']  = 0
+                        get_face_emotion_api_results(clientId)
+                        global_var['text'], global_var['text2'], global_var['text3'] = go_to_formation(clientId, xls_filename, global_var['nom'])
 
-                            elif (resp_deja_photos==1): # User has a database of photos
-                                global_var['flag_enable_recog'] = 0 # Disable recognition in order not to recognize while re-identifying
-                                global_var['flag_ask'] = 0
-
-                                name0 = global_var['nom']   # Save the recognition result, which is wrong, in order to compare later
-                                nb_time_max = 2             # Number of times to retry recognize
-
-                                thread_reidentification = Thread(target = re_identification, args = (clientId, nb_time_max, name0), name = 'thread_reidentification_'+clientId)
-                                thread_reidentification.start()
-
-                            elif (resp_deja_photos == 0): # User doesnt have a database of photos
-
-                                global_var['flag_enable_recog'] = 0 # Disable recognition in order not to recognize while taking photos
-                                resp_allow_take_photos = allow_take_photos(clientId)
-
-                                if (resp_allow_take_photos==1): # User allows to take photos
-                                    global_var['flag_take_photo'] = 1  # Enable photo taking
-                                    #flag_enable_recog = 0 # Stop recognition while taking photos
-
-                                else: # User doesnt want to take photos
-                                    global_var['flag_take_photo'] = 0
-                                    res = allow_go_to_formation_by_id(clientId)
-                                    if (res==1): # User agrees to go to Formation in providing his id manually
-                                        name = ask_name(clientId, 1)
-                                        global_var['text'], global_var['text2'], global_var['text3'] = go_to_formation(clientId, xls_filename, name)
-                                        #flag_enable_recog = 0
-
-                                        # Return to recognition program (if user wishs to, otherwise, wait 20 seconds before returning anyway)
-                                        return_to_recog(clientId)
-
-                                    else: # Quit if user refuses to provide manually his id (after all other functionalities)
-                                        break
-                                        #quit_program()
-
-                                resp_allow_take_photos = 0
-                            resp_deja_photos = 0
-                        global_var['flag_ask'] = 0
-
-                    if (global_var['flag_take_photo']):# and (not flag_quit)):
-
-                        step_time  = 1 # Interval of time (in second) between two times of taking photo
-
-                        thread_take_photo = Thread(target = take_photos, args = (clientId, step_time, 1), name = 'thread_take_photo_'+clientId)
-                        thread_take_photo.start()
-
-                        global_var['tb_nb_times_recog'] = np.empty(len(list_nom)+1) # Extend the list with one more value for the new face
-                        global_var['tb_nb_times_recog'].fill(0) # reinitialize the table with all zeros
-                        
-                        #flag_recog = 1 # the recognizer is supposed to know the new person who has just been taken photos
-                        global_var['flag_take_photo'] = 0
-
-                    """
-                    Call Face API and Emotion API, and display
-                    """
-                    if (global_var['key']==ord('i') or global_var['key']==ord('I')):
-                        retrieve_face_emotion_att(clientId)
                         global_var['key'] = 0
+                        return_to_recog(clientId) # Return to recognition program, after displaying Formation
+
+                    if (global_var['key']==ord('n') or global_var['key']==ord('N')): # User confirms that the recognition result is wrong by choosing N
+                        global_var['flag_wrong_recog'] = 1
+                        global_var['flag_ask'] = 1
+                        global_var['key'] = 0
+
+
+                if ((global_var['flag_recog']==1 and global_var['flag_wrong_recog']==1) or (global_var['flag_recog']==0)): # Not recognized or not correctly recognized
+                    if (global_var['flag_ask']==1):# and (not flag_quit)):
+                        resp_deja_photos = deja_photos(clientId) # Ask user if he has already had a database of face photos
+                        print 'resp_deja_photos = ', resp_deja_photos
+                        
+                        if (resp_deja_photos==-1):
+                            global_var['flag_ask'] = 0
+
+                        elif (resp_deja_photos==1): # User has a database of photos
+                            global_var['flag_enable_recog'] = 0 # Disable recognition in order not to recognize while re-identifying
+                            global_var['flag_ask'] = 0
+
+                            name0 = global_var['nom']   # Save the recognition result, which is wrong, in order to compare later
+                            nb_time_max = 2             # Number of times to retry recognize
+
+                            thread_reidentification = Thread(target = re_identification, args = (clientId, nb_time_max, name0), name = 'thread_reidentification_'+clientId)
+                            thread_reidentification.start()
+
+                        elif (resp_deja_photos == 0): # User doesnt have a database of photos
+
+                            global_var['flag_enable_recog'] = 0 # Disable recognition in order not to recognize while taking photos
+                            resp_allow_take_photos = allow_take_photos(clientId)
+
+                            if (resp_allow_take_photos==1): # User allows to take photos
+                                global_var['flag_take_photo'] = 1  # Enable photo taking
+
+                            else: # User doesnt want to take photos
+                                global_var['flag_take_photo'] = 0
+                                res = allow_go_to_formation_by_id(clientId)
+                                if (res==1): # User agrees to go to Formation in providing his id manually
+                                    name = ask_name(clientId, 1)
+                                    global_var['text'], global_var['text2'], global_var['text3'] = go_to_formation(clientId, xls_filename, name)
+
+                                    # Return to recognition program (if user wishs to, otherwise, wait 20 seconds before returning anyway)
+                                    return_to_recog(clientId)
+
+                                else: # Quit if user refuses to provide manually his id (after all other functionalities)
+                                    break
+
+                            resp_allow_take_photos = 0
+                        resp_deja_photos = 0
+                    global_var['flag_ask'] = 0
+
+                if (global_var['flag_take_photo']==1):# and (not flag_quit)):
+                    step_time  = 1 # Interval of time (in second) between two times of taking photo
+
+                    thread_take_photo = Thread(target = take_photos, args = (clientId, step_time, 1), name = 'thread_take_photo_'+clientId)
+                    thread_take_photo.start()
+
+                    global_var['flag_take_photo'] = 0
+
+                """
+                Call Face API and Emotion API, and display
+                """
+                if (global_var['key']==ord('i') or global_var['key']==ord('I')):
+                    retrieve_face_emotion_att(clientId)
+                    global_var['key'] = 0
         """
         End of While-loop
         """
@@ -1167,24 +734,15 @@ Quit program
 """
 def quit_program(clientId):
 
-#     global flag_quit
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-    
+
     global_var['flag_quit'] = 0 # Turn it on to execute just the yes_no question and bye-bye
 #    quit_opt = yes_or_no(clientId, 'Exit', 'Voulez-vous vraiment quitter ?', 3) # This wont executed if quit by Esc key
-    cv2.destroyWindow('ClientId: ' + str(clientId) + ' - Video streaming')
-
+    
+    chrome_tts(clientId, u"{} secondes ont été passées".format(str(time.time() - origine_time).split('.')[0]))
     chrome_tts(clientId, u"Merci de votre utilisation. Au revoir, à bientôt")
     global_var['flag_quit'] = 1
-
-#    if (quit_opt == 0):
-#        print 'Relance programme...'
-#        import facial_recog_server
-#        reload(facial_recog_server) # Reload program
-#    elif (quit_opt == 1):
-#        print u'Session a terminée, fermer programme...'
-        #sys.exit() # Supplementary to quit program more correctly
 
 """
 Definition of used yes-no questions in program
@@ -1230,8 +788,7 @@ Yes/No question as an asking/answering by dialogue
 """
 def yes_or_no(clientId, title, message, type_message_box):
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-    if (not global_var['flag_quit']): # Put in If-condition to allow interrupt when Esc is pressed
-        #print 'not good'
+    if (not global_var['flag_quit']): # Put in If-condition to stop asking when Esc is pressed
         resp, ouinon = chrome_yes_or_no(clientId, message)
         return resp
     else:
@@ -1245,22 +802,14 @@ def simple_message(clientId, title, message):
     if (not global_var['flag_quit']): # Put in If-condition to allow interrupt when Esc is pressed
         chrome_tts(clientId, message)
 
-"""
-Calculating Frame-per-second parameter
-"""
-def count_fps():
-    video = cv2.VideoCapture(-1)
-    fps   = video.get(cv2.cv.CV_CAP_PROP_FPS);
-    return fps
-
 
 """
 Initialisation for global variables used by clientId
 """
 def global_var_init(clientId):
-    
+
     global global_vars
-    
+
     # Messages to appear on streaming video (at line 3, 4, 5)
     text    = ''
     text2   = ''
@@ -1268,7 +817,7 @@ def global_var_init(clientId):
     age     = ''
     gender  = ''
     emo     = ''
-    
+
     # Flags used in program
     flag_recog        = 0 # Recognition flag (flag=1 if recognize someone, flag=0 otherwise)
     flag_take_photo   = 0 # Flag if unknown user chooses to take photos
@@ -1278,49 +827,105 @@ def global_var_init(clientId):
     flag_quit         = 0
     flag_ask          = 0 # Flag if it is necessary to ask 'etes vous dans ma base ou pas ?'
     flag_reidentify   = 0
-    
-    
+
     # Initialisation global variables
-    image_save = 0
     key   = 0 # Quit key inside video streaming thread
     key2  = 0 # Quit key from run program
-       
+
     todo = ''
     stt  = ''
     tts  = ''
-    
+
     textFromHTML  = ""
-    frameFromHTML = 0
     binary_data   = 0
 
-    tb_nb_times_recog = np.empty(len(list_nom))
-    tb_nb_times_recog.fill(0) # initialize with all zeros
-    
     nom = ''
-    
-    global_vars.append( dict([  ('clientId', str(clientId)), 
-                                ('text', text), ('text2', text2), ('text3', text3), 
+
+    global_vars.append( dict([  ('clientId', str(clientId)),
+                                ('text', text), ('text2', text2), ('text3', text3),
                                 ('age', age), ('gender', gender), ('emo', emo),
-                                ('flag_recog', flag_recog), 
+                                ('flag_recog', flag_recog),
                                 ('flag_take_photo', flag_take_photo),
-                                ('flag_wrong_recog', flag_wrong_recog), 
+                                ('flag_wrong_recog', flag_wrong_recog),
                                 ('flag_enable_recog', flag_enable_recog),
-                                ('flag_disable_detection', flag_disable_detection), 
+                                ('flag_disable_detection', flag_disable_detection),
                                 ('flag_quit', flag_quit),
                                 ('flag_ask', flag_ask),
                                 ('flag_reidentify', flag_reidentify),
-                                ('image_save', image_save),
                                 ('key', key),
-                                ('key2', key2),                        
+                                ('key2', key2),
                                 ('todo', todo),
                                 ('stt', stt),
                                 ('tts', tts),
                                 ('textFromHTML', textFromHTML),
-                                ('frameFromHTML', frameFromHTML),
                                 ('binary_data', binary_data),
-                                ('tb_nb_times_recog', tb_nb_times_recog),
                                 ('nom', nom)
                                 ]))
+
+
+"""
+==============================================================================
+Flask Initialization
+==============================================================================
+"""
+app  = Flask(__name__)
+port = int(os.getenv("PORT", 9099))
+ 
+@app.route('/')
+def render_hmtl():
+    return render_template('index.html')
+
+@app.route('/start/<clientId>', methods=['POST'])
+def onStart(clientId):
+    global_var_init(clientId)
+    #time.sleep(0.5)
+    thread_program = Thread(target = run_program, args= (clientId,), name = 'thread_prog_'+clientId)
+    thread_program.start()
+
+    return "", 200
+
+@app.route('/StT/<data>', methods=['POST'])
+def runSpeechToText(data):
+    clientId = data[0:5]
+    text     = data[6:]
+
+    global global_vars
+    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+    global_var['stt'] = text
+    #print 'StT', clientId, text
+    return "", 200
+
+@app.route('/textFromHTML/<data>', methods=['POST'])
+def getTextFromHTML(data):
+    clientId = data[0:5]
+    text     = data[6:]
+    global global_vars
+    global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+    global_var['textFromHTML'] = text
+    #print 'textFromHTML', clientId, text
+    return "", 200
+
+@app.route('/longpolling/<clientId>', methods=['POST'])
+def longPolling(clientId):
+    time.sleep(0.5)
+    global global_vars
+    global_var  = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+    temp        = global_var['todo']
+    global_var['todo'] = ""
+    return temp, 200
+
+@app.route('/image', methods=['POST'])
+def getImage():
+    clientId        = request.get_json(force=True)["client_id"]
+    image           = request.get_json(force=True)["img"]
+    image           = image.split(",")[1]
+    binary_data     = a2b_base64(image)
+
+    global global_vars
+    global_var  = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+    global_var['binary_data']   = binary_data
+    return "",200
+
 
 
 """
@@ -1330,48 +935,80 @@ def global_var_init(clientId):
 """
 # Parameters
 root_path    = ""
-cascPath     = "haarcascade_frontalface_default.xml" # path to Haar-cascade training xml file
-imgPath      = "face_database/" # path to database of faces
-suffix       = '.png' # image file extention
+imgPath      = "face_database_for_oxford/" # path to database of faces
+suffix       = '.jpg' # image file extention
 thres        = 80     # Distance threshold for recognition
-wait_time    = 2.5    # Time needed to wait for recognition
-nb_max_times = 10     # Maximum number of times of good recognition counted in 3 seconds (manually determined, and depends on camera)
-nb_img_max   = 5      # Number of photos needs to be taken for each user
+wait_time    = 1.5    # Time needed to wait for recognition
+nb_img_max   = 2      # Number of photos needs to be taken for each user
 xls_filename = 'formation' # Excel file contains Formation information
-#nom = ''
+maxNbOfCandidates = 1 # Maximum number of candidates for the identification
 
-# Haar cascade detector used for face detection
-faceCascade = cv2.CascadeClassifier(root_path + cascPath)
+# Natural Language Classifier
+natural_language_classifier = NaturalLanguageClassifierV1(
+                              username = '82376208-a089-464c-a5da-96893ed1aa89',
+                              password = 'SEuX8ielPiiJ')
 
-# For face recognition we use the Local Binary Pattern Histogram (LBPH) Face Recognizer
-recognizer  = cv2.createLBPHFaceRecognizer()
-list_nom    = []
+# Training Phase
+groupId     = "group_all"
+groupName   = "employeurs"
 
-# Call the get_images_and_labels function and get the face images and the corresponding labels
-print u"Obtenu Images et Labels à partir de database..."
-images, labels = get_images_and_labels(root_path + imgPath, list_nom)
+face_api.deletePersonGroup(groupId)
 
-# Perform the training
-recognizer.train(images, np.array(labels))
-print u"Apprentissage a été fini...\n"
+# Create PersonGroup
+result = face_api.createPersonGroup(groupId, groupName, "")
+print result
+#result = eval(result)
 
-global_vars = []
+# if result["error"]["code"] == "PersonGroupExists":
+#     #TODO: change to get personGroup info than delete it
+#     #face_api.deletePersonGroup(groupId)
+#     print 'a'
 
-flask_init()
+list_nom = []
+list_personId = []
+nbr = 0
 
-#HTML_refresh = False
+image_paths = [os.path.join(imgPath, f) for f in os.listdir(imgPath)]
 
-app.run(host = '0.0.0.0', port = 5000, threaded = True)
+for image_path in image_paths:
+    nom = os.path.split(image_path)[1].split(".")[0]
+    if nom not in list_nom:
+        # Create a Person in a PersonGroup
+        personName = nom
+        personId   = face_api.createPerson(groupId, personName, "")
+        
+        list_nom.append(nom)
+        list_personId.append(personId)
+        nbr += 1
+    else:
+        personId = list_personId[nbr-1]
 
-#thread.start_new_thread(flaskThread,())
-#
-#flag_thread_started  = 0
-#
-#while True:
-#    if flag_thread_started:
-#        if (thread_program.is_alive() == False):
-#            print 'join run_program thread\n'
-#            thread_program.join()
-#            flag_thread_started = 0
+    print "Add image...", nom, '\t', image_path
+    face_api.addPersonFace(groupId, personId, "", image_path, None)
+    time.sleep(0.5)
+
+resultTrainPersonGroup = face_api.trainPersonGroup(groupId)
+
+res      = face_api.getPersonGroupTrainingStatus(groupId)
+res      = res.replace('null','None')
+res_dict = eval(res)
+training_status = res_dict['status']
+print training_status
+
+
+while (training_status=='running'):
+    time.sleep(0.5)
+    res = face_api.getPersonGroupTrainingStatus(groupId)
+    res = res.replace('null','None')
+    res_dict = eval(res)
+    training_status = res_dict['status']
+    print training_status
+
+if (training_status=='succeeded'):
+    global_vars = []
+    origine_time = time.time()
+    app.run(host = '0.0.0.0', port = port, threaded = True)
+
+
 
 # END OF PROGRAM

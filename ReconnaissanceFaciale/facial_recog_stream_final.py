@@ -74,7 +74,7 @@ def call_face_emotion_api(img):
     headers['Content-Type'] = 'application/octet-stream'
     json = None
 
-    faceResult = processRequest('post', _url_face, json, data, headers, params, _maxNumRetries )
+    faceResult, status_code = processRequest('post', _url_face, json, data, headers, params, _maxNumRetries )
     
     """
     Emotion API
@@ -84,7 +84,7 @@ def call_face_emotion_api(img):
     headers['Content-Type'] = 'application/octet-stream'
     json = None
     
-    emoResult = processRequest('post', _url_emo, json, data, headers, None, _maxNumRetries )
+    emoResult, status_code2 = processRequest('post', _url_emo, json, data, headers, None, _maxNumRetries )
     
     
     """

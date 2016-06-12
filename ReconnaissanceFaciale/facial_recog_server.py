@@ -14,10 +14,12 @@ from read_xls import read_xls
 import xlrd
 from threading import Thread
 from flask import Flask, request, render_template#, Response
-from processRequest import processRequest
+#☻from processRequest import processRequest
 import operator
 from binascii import a2b_base64
 from watson_developer_cloud import NaturalLanguageClassifierV1
+import face_api
+import emotion_api
 #import thread
 
 """
@@ -43,70 +45,62 @@ def str_replace_chars(text, chars_origine, chars_replace):
 Face and Emotion API
 ==============================================================================
 """
-def call_face_emotion_api(clientId):
-
-    # Face API and Emotion API Variables
-    _url_face   = 'https://api.projectoxford.ai/face/v1.0/detect'
-    _key_face   = '5d99eec09a7e4b2a916eba7f75671600' # primary key
-    _url_emo    = 'https://api.projectoxford.ai/emotion/v1.0/recognize'
-    _key_emo    = "b226d933ab854505b9b9877cf2f4ff7c" # primary key
-    _maxNumRetries = 10
+def retrieve_face_emotion_att(clientId):
 
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     data = global_var['binary_data']
+        
+    # Face API
+    faceResult = face_api.faceDetect(None, None, data)
+    
+    # Emotion API
+    emoResult = emotion_api.recognizeEmotion(None, None, data)
 
-    """
-    Face API
-    """
-    # Face detection parameters
-    params = {'returnFaceAttributes': 'age,gender,glasses',
-              'returnFaceLandmarks': 'true'}
-    headers = dict()
-    headers['Ocp-Apim-Subscription-Key'] = _key_face
-    headers['Content-Type'] = 'application/octet-stream'
-    json = None
-
-    faceResult = processRequest('post', _url_face, json, data, headers, params, _maxNumRetries )
-
-    """
-    Emotion API
-    """
-    headers = dict()
-    headers['Ocp-Apim-Subscription-Key'] = _key_emo
-    headers['Content-Type'] = 'application/octet-stream'
-
-    emoResult = processRequest('post', _url_emo, json, data, headers, None, _maxNumRetries )
-
-    """
-    Results
-    """
-    print 'Found {} faces'.format(len(emoResult))
+    # Results
+    print 'Found {} '.format(len(faceResult)) + ('faces' if len(faceResult)!=1 else 'face')
     nb_faces = len(faceResult)
-    tb_age      = ['' for ind in range(nb_faces)]
-    tb_gender   = ['' for ind in range(nb_faces)]
-    tb_glasses  = ['' for ind in range(nb_faces)]
-    tb_emo      = ['' for ind in range(len(emoResult))]
+    tb_face_rect = [{} for ind in range(nb_faces)]
+    tb_age       = ['' for ind in range(nb_faces)]
+    tb_gender    = ['' for ind in range(nb_faces)]
+    tb_glasses   = ['' for ind in range(nb_faces)]
+    tb_emo       = ['' for ind in range(len(emoResult))]
 
     if (len(faceResult)>0 and len(emoResult)>0):
         ind = 0
         for currFace in faceResult:
-            #faceRectangle  = currFace['faceRectangle']
-            faceAttributes  = currFace['faceAttributes']
-            tb_age[ind]     = str(faceAttributes['age'])
-            tb_gender[ind]  = faceAttributes['gender']
-            tb_glasses[ind] = faceAttributes['glasses']
+            faceRectangle       = currFace['faceRectangle']
+            faceAttributes      = currFace['faceAttributes']
+            
+            tb_face_rect[ind]   = faceRectangle
+            tb_age[ind]         = str(faceAttributes['age'])
+            tb_gender[ind]      = faceAttributes['gender']
+            tb_glasses[ind]     = faceAttributes['glasses']
             ind += 1
+            
         ind = 0
         for currFace in emoResult:
             tb_emo[ind] = max(currFace['scores'].iteritems(), key=operator.itemgetter(1))[0]
             ind += 1
-
-        global_var['age']     = tb_age[0] # TODO: replace the first face by the biggest face
-        global_var['gender']  = tb_gender[0]
-        global_var['emo']     = tb_emo[0]
+            
+        faceWidth  = np.zeros(shape=(nb_faces))
+        faceHeight = np.zeros(shape=(nb_faces))
+        for ind in range(nb_faces):
+            faceWidth[ind]  = tb_face_rect[ind]['width']
+            faceHeight[ind] = tb_face_rect[ind]['height']
+        ind_max = np.argmax(faceWidth*faceHeight.T)
+        
+        global_var['age']     = tb_age[ind_max]
+        global_var['gender']  = tb_gender[ind_max]
+        global_var['emo']     = tb_emo[ind_max]
+        
+#        global_var['age']     = tb_age[0] # TODO: replace the first face by the biggest face (Done)
+#        global_var['gender']  = tb_gender[0]
+#        global_var['emo']     = tb_emo[0]
 
         return tb_age, tb_gender, tb_glasses, tb_emo
+    else:
+        return 'N/A','N/A','N/A','N/A'
 
 """
 Yield Face and Emotion API results
@@ -116,34 +110,36 @@ def get_face_emotion_api_results(clientId):
     resp = detect_face_attributes(clientId)
     if (resp==1):
 
-        t0 = time.time()
-        tb_age, tb_gender, tb_glasses, tb_emo = call_face_emotion_api(clientId)
+        print 'Calling APIs to retrieve facial and emotional attributes, please wait'
+        tb_age, tb_gender, tb_glasses, tb_emo = retrieve_face_emotion_att(clientId)
 
-        # Translate emotion to french
-        tb_emo_eng = ['happiness', 'sadness', 'surprise', 'anger', 'fear',
-                  'contempt', 'disgust', 'neutral']
-        tb_emo_correspond = ['êtes joyeux', 'êtes trist', 'êtes surprise',
-                             'êtes en colère', 'avez peur', 'êtes mépris',
-                             'êtes dégoût', 'êtes neutre']
-
-        # Translate glasses to french
-        tb_glasses_eng = ['NoGlasses', 'ReadingGlasses',
-                      'sunglasses', 'swimmingGoggles']
-        tb_glasses_correspond = ['ne portez pas de lunettes',
-                                 'portez des lunettes',
-                                 'portez des lunettes de soleil',
-                                 'portez des lunettes de natation']
-
-        for ind in range(len(tb_age)):
-            glasses_str = tb_glasses_correspond[tb_glasses_eng.index(tb_glasses[ind])]
-            emo_str     = tb_emo_correspond[tb_emo_eng.index(tb_emo[ind])]
-            textToSpeak = "Bonjour " + ('Monsieur' if tb_gender[ind] =='male' else 'Madame') + \
-                ", vous avez " + tb_age[ind].replace('.',',') + " ans, votre état d'émotion est " + emo_str + \
-                ", et vous " + glasses_str
-            simple_message(clientId, 'Attributs faciales', textToSpeak)
-
-        print 'Call Face and Emotion API: ' + str(time.time()-t0) + ' seconds'
-
+        if ([tb_age, tb_gender, tb_glasses, tb_emo] != ['N/A','N/A','N/A','N/A']):
+            # Translate emotion to french
+            tb_emo_eng = ['happiness', 'sadness', 'surprise', 'anger', 'fear',
+                          'contempt', 'disgust', 'neutral']
+            tb_emo_correspond = ['joyeux', 'trist', 'surprise',
+                                 'en colère', "d'avoir peur", ' mépris',
+                                 'dégoût', 'neutre']
+    
+            # Translate glasses to french
+            tb_glasses_eng = ['NoGlasses', 'ReadingGlasses',
+                              'sunglasses', 'swimmingGoggles']
+            tb_glasses_correspond = ['ne portez pas de lunettes',
+                                     'portez des lunettes',
+                                     'portez des lunettes de soleil',
+                                     'portez des lunettes de natation']
+    
+            for ind in range(len(tb_age)):
+                glasses_str = tb_glasses_correspond[tb_glasses_eng.index(tb_glasses[ind])]
+                emo_str     = tb_emo_correspond[tb_emo_eng.index(tb_emo[ind])]
+                textToSpeak = "Bonjour " + ('Monsieur' if tb_gender[ind] =='male' else 'Madame') + \
+                    ", vous avez " + tb_age[ind].replace('.',',') + " ans, votre état d'émotion est " + emo_str + \
+                    ", et vous " + glasses_str
+                simple_message(clientId, 'Attributs faciales', textToSpeak)
+            # print 'Call Face and Emotion API: ' + str(time.time()-t0) + ' seconds'
+        else:
+            print 'Found no faces'
+            simple_message(clientId, 'Attributs faciales', u'Désolé, aucun visage trouvé')
 
 
 """
@@ -364,10 +360,10 @@ def chrome_yes_or_no(clientId, question):
 
     if (response == '@'):
         result, response = chrome_yes_or_no(clientId, u"Je ne vous entends pas, veuillez répéter")
-            
+
     classes = natural_language_classifier.classify('2374f9x68-nlc-1265', response)
-    responseYesOrNo = classes["top_class"]   
-    
+    responseYesOrNo = classes["top_class"]
+
     if not(global_var['flag_quit']):
         if (responseYesOrNo=='oui'):
             result = 1
@@ -967,7 +963,7 @@ def run_program(clientId):
                     Call Face API and Emotion API, and display
                     """
                     if (global_var['key']==ord('i') or global_var['key']==ord('I')):
-                        call_face_emotion_api(clientId)
+                        retrieve_face_emotion_att(clientId)
                         global_var['key'] = 0
         """
         End of While-loop
@@ -1173,7 +1169,7 @@ print u"Apprentissage a été fini...\n"
 natural_language_classifier = NaturalLanguageClassifierV1(
                               username = '82376208-a089-464c-a5da-96893ed1aa89',
                               password = 'SEuX8ielPiiJ')
-                              
+
 global_vars = []
 
 flask_init()
