@@ -8,8 +8,8 @@
 		}
 
 		#canvasElement {
-			height: 480px;
-			width: 640px;
+			height: 375px;
+			width: 500px;
 			background-color: #666;
 		}
 	</style>
@@ -167,7 +167,7 @@
 		var text  = $('#userInput').val();
 		var text2 = '<b style="color:#0000FF">Vous:</b>&nbsp;'
 		var text3 = text[0].toUpperCase(); // Put first letter on uppercase
-		$('<div/>').html(text2.concat(text3, text.substring(1), " (from userInput)")).appendTo($conversation);
+		$('<div/>').html(text2.concat(text3, text.substring(1), " (from keyboard)")).appendTo($conversation);
 
 	}
 

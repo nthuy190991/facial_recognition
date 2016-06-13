@@ -50,10 +50,10 @@ def retrieve_face_emotion_att(clientId):
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     data = global_var['binary_data']
-        
+
     # Face API
     faceResult = face_api.faceDetect(None, None, data)
-    
+
     # Emotion API
     emoResult = emotion_api.recognizeEmotion(None, None, data)
 
@@ -71,29 +71,29 @@ def retrieve_face_emotion_att(clientId):
         for currFace in faceResult:
             faceRectangle       = currFace['faceRectangle']
             faceAttributes      = currFace['faceAttributes']
-            
+
             tb_face_rect[ind]   = faceRectangle
             tb_age[ind]         = str(faceAttributes['age'])
             tb_gender[ind]      = faceAttributes['gender']
             tb_glasses[ind]     = faceAttributes['glasses']
             ind += 1
-            
+
         ind = 0
         for currFace in emoResult:
             tb_emo[ind] = max(currFace['scores'].iteritems(), key=operator.itemgetter(1))[0]
             ind += 1
-            
+
         faceWidth  = np.zeros(shape=(nb_faces))
         faceHeight = np.zeros(shape=(nb_faces))
         for ind in range(nb_faces):
             faceWidth[ind]  = tb_face_rect[ind]['width']
             faceHeight[ind] = tb_face_rect[ind]['height']
         ind_max = np.argmax(faceWidth*faceHeight.T)
-        
+
         global_var['age']     = tb_age[ind_max]
         global_var['gender']  = tb_gender[ind_max]
         global_var['emo']     = tb_emo[ind_max]
-        
+
 #        global_var['age']     = tb_age[0] # TODO: replace the first face by the biggest face (Done)
 #        global_var['gender']  = tb_gender[0]
 #        global_var['emo']     = tb_emo[0]
@@ -120,7 +120,7 @@ def get_face_emotion_api_results(clientId):
             tb_emo_correspond = ['joyeux', 'trist', 'surprise',
                                  'en colère', "d'avoir peur", ' mépris',
                                  'dégoût', 'neutre']
-    
+
             # Translate glasses to french
             tb_glasses_eng = ['NoGlasses', 'ReadingGlasses',
                               'sunglasses', 'swimmingGoggles']
@@ -128,7 +128,7 @@ def get_face_emotion_api_results(clientId):
                                      'portez des lunettes',
                                      'portez des lunettes de soleil',
                                      'portez des lunettes de natation']
-    
+
             for ind in range(len(tb_age)):
                 glasses_str = tb_glasses_correspond[tb_glasses_eng.index(tb_glasses[ind])]
                 emo_str     = tb_emo_correspond[tb_emo_eng.index(tb_emo[ind])]
@@ -191,7 +191,7 @@ def chrome_stt(clientId): # Speech-to-Text
     t0 = time.time()
     while (global_var['stt'] == ''):
         pass
-        if (time.time()-t0>=7): # Time outs after 8 secs
+        if (time.time()-t0>=5): # Time outs after 5 secs
             global_var['stt'] = '@' # Silence
     resp = global_var['stt']
     return resp
@@ -205,15 +205,15 @@ def chrome_yes_or_no(clientId, question):
 
     t0 = time.time()
     while ((global_var['textFromHTML']=="") and (time.time()-t0<5)):
-        pass
+        time.sleep(0.25)
     response = global_var['textFromHTML'] # Get answer from userInput during 3 seconds
     global_var['textFromHTML'] = ""
 
     if (response == ""):
-        response = chrome_stt(clientId) # Listen for an answer
+		response = chrome_stt(clientId) # Listen for an answer
 
     if (response == '@'):
-        result, response = chrome_yes_or_no(clientId, u"Je ne vous entends pas, veuillez répéter")
+		result, response = chrome_yes_or_no(clientId, u"Je ne vous entends pas, veuillez répéter")
 
     # Apply Natural Language Classifier
     classes = natural_language_classifier.classify('2374f9x68-nlc-1265', response)
@@ -453,7 +453,7 @@ def retake_validate_photos(clientId, personId, step_time, flag_show_photos, imgP
     # Retrain Person Group
     resultTrainPersonGroup = face_api.trainPersonGroup(groupId)
     print "Re-train Person Group: ", resultTrainPersonGroup
-    
+
     global_var['flag_enable_recog'] = 1  # Re-enable recognition
     global_var['flag_ask'] = 1 # Reset asking
 
@@ -472,11 +472,11 @@ def show_photos(clientId, imgPath, name):
         plt.imshow(img)
     plt.show()
 
-    time.sleep(5) # wait 5 secs
+    time.sleep(2.5) # wait 5 secs
     for ind in range(nb_img_max):
         plt.close("all")
-        
-        
+
+
 """
 ==============================================================================
 Re-identification: when a user is not recognized or not correctly recognized
@@ -596,7 +596,7 @@ def run_program(clientId):
                 if len(faceDetectResult)>=1:
                     new_faceId          = faceDetectResult[0]['faceId']
                     resultIdentify      = face_api.faceIdentify(groupId, [new_faceId], maxNbOfCandidates)
-                    
+
                     if len(resultIdentify[0]['candidates'])>=1: # If the number of times recognized is big enough
                         global_var['flag_recog']  = 1 # Known Person
                         global_var['flag_ask']    = 0
@@ -667,7 +667,7 @@ def run_program(clientId):
                     if (global_var['flag_ask']==1):# and (not flag_quit)):
                         resp_deja_photos = deja_photos(clientId) # Ask user if he has already had a database of face photos
                         print 'resp_deja_photos = ', resp_deja_photos
-                        
+
                         if (resp_deja_photos==-1):
                             global_var['flag_ask'] = 0
 
@@ -739,7 +739,7 @@ def quit_program(clientId):
 
     global_var['flag_quit'] = 0 # Turn it on to execute just the yes_no question and bye-bye
 #    quit_opt = yes_or_no(clientId, 'Exit', 'Voulez-vous vraiment quitter ?', 3) # This wont executed if quit by Esc key
-    
+
     chrome_tts(clientId, u"{} secondes ont été passées".format(str(time.time() - origine_time).split('.')[0]))
     chrome_tts(clientId, u"Merci de votre utilisation. Au revoir, à bientôt")
     global_var['flag_quit'] = 1
@@ -870,7 +870,7 @@ Flask Initialization
 """
 app  = Flask(__name__)
 port = int(os.getenv("PORT", 9099))
- 
+
 @app.route('/')
 def render_hmtl():
     return render_template('index.html')
@@ -940,7 +940,7 @@ suffix       = '.jpg' # image file extention
 thres        = 80     # Distance threshold for recognition
 wait_time    = 1.5    # Time needed to wait for recognition
 nb_img_max   = 2      # Number of photos needs to be taken for each user
-xls_filename = 'formation' # Excel file contains Formation information
+xls_filename = 'formation.xls' # Excel file contains Formation information
 maxNbOfCandidates = 1 # Maximum number of candidates for the identification
 
 # Natural Language Classifier
@@ -976,7 +976,7 @@ for image_path in image_paths:
         # Create a Person in a PersonGroup
         personName = nom
         personId   = face_api.createPerson(groupId, personName, "")
-        
+
         list_nom.append(nom)
         list_personId.append(personId)
         nbr += 1
@@ -985,7 +985,7 @@ for image_path in image_paths:
 
     print "Add image...", nom, '\t', image_path
     face_api.addPersonFace(groupId, personId, "", image_path, None)
-    time.sleep(0.5)
+    time.sleep(0.25)
 
 resultTrainPersonGroup = face_api.trainPersonGroup(groupId)
 
@@ -997,7 +997,7 @@ print training_status
 
 
 while (training_status=='running'):
-    time.sleep(0.5)
+    time.sleep(0.25)
     res = face_api.getPersonGroupTrainingStatus(groupId)
     res = res.replace('null','None')
     res_dict = eval(res)

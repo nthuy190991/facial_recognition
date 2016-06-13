@@ -50,10 +50,10 @@ def retrieve_face_emotion_att(clientId):
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     data = global_var['binary_data']
-        
+
     # Face API
     faceResult = face_api.faceDetect(None, None, data)
-    
+
     # Emotion API
     emoResult = emotion_api.recognizeEmotion(None, None, data)
 
@@ -71,29 +71,29 @@ def retrieve_face_emotion_att(clientId):
         for currFace in faceResult:
             faceRectangle       = currFace['faceRectangle']
             faceAttributes      = currFace['faceAttributes']
-            
+
             tb_face_rect[ind]   = faceRectangle
             tb_age[ind]         = str(faceAttributes['age'])
             tb_gender[ind]      = faceAttributes['gender']
             tb_glasses[ind]     = faceAttributes['glasses']
             ind += 1
-            
+
         ind = 0
         for currFace in emoResult:
             tb_emo[ind] = max(currFace['scores'].iteritems(), key=operator.itemgetter(1))[0]
             ind += 1
-            
+
         faceWidth  = np.zeros(shape=(nb_faces))
         faceHeight = np.zeros(shape=(nb_faces))
         for ind in range(nb_faces):
             faceWidth[ind]  = tb_face_rect[ind]['width']
             faceHeight[ind] = tb_face_rect[ind]['height']
         ind_max = np.argmax(faceWidth*faceHeight.T)
-        
+
         global_var['age']     = tb_age[ind_max]
         global_var['gender']  = tb_gender[ind_max]
         global_var['emo']     = tb_emo[ind_max]
-        
+
 #        global_var['age']     = tb_age[0] # TODO: replace the first face by the biggest face (Done)
 #        global_var['gender']  = tb_gender[0]
 #        global_var['emo']     = tb_emo[0]
@@ -120,7 +120,7 @@ def get_face_emotion_api_results(clientId):
             tb_emo_correspond = ['joyeux', 'trist', 'surprise',
                                  'en colère', "d'avoir peur", ' mépris',
                                  'dégoût', 'neutre']
-    
+
             # Translate glasses to french
             tb_glasses_eng = ['NoGlasses', 'ReadingGlasses',
                               'sunglasses', 'swimmingGoggles']
@@ -128,7 +128,7 @@ def get_face_emotion_api_results(clientId):
                                      'portez des lunettes',
                                      'portez des lunettes de soleil',
                                      'portez des lunettes de natation']
-    
+
             for ind in range(len(tb_age)):
                 glasses_str = tb_glasses_correspond[tb_glasses_eng.index(tb_glasses[ind])]
                 emo_str     = tb_emo_correspond[tb_emo_eng.index(tb_emo[ind])]
@@ -1148,7 +1148,7 @@ thres        = 80     # Distance threshold for recognition
 wait_time    = 2.5    # Time needed to wait for recognition
 nb_max_times = 10     # Maximum number of times of good recognition counted in 3 seconds (manually determined, and depends on camera)
 nb_img_max   = 5      # Number of photos needs to be taken for each user
-xls_filename = 'formation' # Excel file contains Formation information
+xls_filename = 'formation.xls' # Excel file contains Formation information
 
 # Haar cascade detector used for face detection
 faceCascade = cv2.CascadeClassifier(root_path + cascPath)
