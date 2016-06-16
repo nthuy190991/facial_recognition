@@ -14,7 +14,7 @@ from read_xls import read_xls
 import xlrd
 from threading import Thread
 from flask import Flask, request, render_template#, Response
-#☻from processRequest import processRequest
+#from processRequest import processRequest
 import operator
 from binascii import a2b_base64
 from watson_developer_cloud import NaturalLanguageClassifierV1
@@ -148,11 +148,9 @@ Ask a name or id as a string
 def ask_name(clientId, flag):
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
-
     global_var['text']  = ''
     global_var['text2'] = ''
     global_var['text3'] = "Donnez-moi votre identifiant, s'il vous plait !"
-
     if (flag):
         simple_message(clientId, '', global_var['text3'])
 
@@ -212,7 +210,6 @@ Flask Initialization
 """
 def flask_init():
     global app
-
     app  = Flask(__name__)
 
     @app.route('/')
@@ -289,10 +286,6 @@ def flask_init():
 #           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes()
 #           + b'\r\n\r\n', mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
-def flaskThread():
-    port = int(os.getenv('PORT', '8000'))
-    app.run(host='0.0.0.0', port = port, threaded=True)
 
 """
 ==============================================================================

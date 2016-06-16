@@ -8,8 +8,7 @@ Created on Tue Apr 12 15:09:31 2016
 from __future__ import print_function
 import xlrd
 
-def read_xls(name, display):
-    fname = name + '.xls'
+def read_xls(fname, display):
     
     # Open the workbook
     xl_workbook = xlrd.open_workbook(fname)

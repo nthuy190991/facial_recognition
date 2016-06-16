@@ -1,0 +1,21 @@
+//- index.jade
+extends ./layout.jade
+
+block row-content
+
+  div.row.conversation-div()
+    div.container
+      div.col-lg-12.col-md-12.col-xs-12
+        div.conversation-flow-container.clearfix
+          div.col-lg-12.col-md-12.col-xs-12
+            div.conversation-well.conversation-container.clearfix
+          div.dialogs-loading.text-center
+            img.watson-loading-gif(src='images/loading-indicator.svg')
+          div.text-center.dialogs-error
+            div.errorMsg
+          div.col-lg-8.col-md-8.col-xs-6.no-padding-right
+            input.user-input.form-control#response-input(type='text', placeholder='Tapez votre réponse')
+          div.col-lg-2.col-md-2.col-xs-3.text-right.no-padding-left.no-padding-right
+            button.input-btn.btn.btn-block#send-btn Envoyer
+          div.col-lg-2.col-md-2.col-xs-3.text-right.no-padding-left
+            button.listen-btn.btn.btn-block#listen-btn Ecouter
