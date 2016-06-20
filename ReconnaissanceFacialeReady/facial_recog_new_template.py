@@ -29,6 +29,12 @@ def replace_accents(text):
     text2 = str_replace_chars(text, chars_origine, chars_replace)
     return text2
 
+def replace_accents2(text):
+    chars_origine = ['Ê','à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü']
+    chars_replace = ['E','a', 'a', 'a', 'a', 'a', 'a', 'ae', 'c', 'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'o', 'o', 'o', 'o', 'o', 'u', 'u', 'u', 'u']
+    text2 = str_replace_chars(text, chars_origine, chars_replace)
+    return text2
+
 """
 Replace characters in a string
 """
@@ -50,9 +56,10 @@ def retrieve_face_emotion_att(clientId):
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
     frame = global_var['frame']
 
-    chrome_server2client(clientId, 'START')
     chrome_server2client(clientId, 'Veuillez patienter pendant quelques secondes...')
-
+    time.sleep(1)
+    chrome_server2client(clientId, 'START')
+    
     img_filename = 'image.png'
     cv2.imwrite(img_filename, frame)
 
@@ -384,7 +391,7 @@ def message_xy(frame, text, x, y, color, thickness):
 
 
 """
-Display Formation Panel for a recognized or username-known user
+Display Formation info for a recognized or username-known user
 """
 def go_to_formation(clientId, xls_filename, name):
     resp = ask_go_to_formation(clientId)
@@ -413,13 +420,15 @@ def go_to_formation(clientId, xls_filename, name):
 
             ind = mail_list.index(mail) # Find user in xls file based on his/her mail
             date = xlrd.xldate_as_tuple(tb_formation[ind][tb_formation[0][:].index('Date du jour')],0)
-            global_var['text2'] = u"Bienvenue à la formation de "+str(tb_formation[ind][tb_formation[0][:].index('Prenom')])+" "+str(tb_formation[ind][tb_formation[0][:].index('Nom')] + ' !')
-            global_var['text3'] = "Vous avez un cours de " + str(tb_formation[ind][tb_formation[0][:].index('Formation')]) + ", dans la salle " + str(tb_formation[ind][tb_formation[0][:].index('Salle')]) + u", à partir du " + "{}/{}/{}".format(str(date[2]), str(date[1]),str(date[0]))
 
-        simple_message(clientId, global_var['text2'] + ' ' + global_var['text3'])
+            text2 = "Bienvenue à la formation de "+str(tb_formation[ind][tb_formation[0][:].index('Prenom')])+" "+str(tb_formation[ind][tb_formation[0][:].index('Nom')] + ' !')
+            text3 = "Vous avez un cours de " + str(tb_formation[ind][tb_formation[0][:].index('Formation')]) + ", dans la salle " + str(tb_formation[ind][tb_formation[0][:].index('Salle')]) + ", à partir du " + "{}/{}/{}".format(str(date[2]), str(date[1]),str(date[0]))
+            global_var['text2'] = replace_accents2(text2)
+            global_var['text3'] = replace_accents2(text3)
+            
+        simple_message(clientId, text2 + ' ' + text3)
 
         return_to_recog(clientId) # Return to recognition program immediately or 20 seconds before returning
-
 
 
 """
