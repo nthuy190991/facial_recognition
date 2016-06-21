@@ -7,6 +7,7 @@ Created on Thu Jun 14 09:43:38 2016
 
 import os
 import numpy as np
+import heapq
 import cv2
 import time
 from read_xls import read_xls
@@ -289,6 +290,7 @@ def video_streaming(clientId):
     time_origine = time.time()
     video_capture = cv2.VideoCapture(0)
 
+    ii = 0
     while True:
         ret, frame = video_capture.read()
         frame0 = cv2.flip(frame, 1)
@@ -310,35 +312,65 @@ def video_streaming(clientId):
             """
             Recognition part
             """
+            if (len(faces)>1): # Consider only the biggest face appears in the video
+                w_vect = faces.T[2,:]
+                h_vect = faces.T[3,:]
+                x0, y0, w0, h0 = faces[np.argmax(w_vect*h_vect)]
+            elif (len(faces)==1): # If there is only one face
+                x0, y0, w0, h0 = faces[0]
+
             for (x, y, w, h) in faces:
-                if (len(faces)>1): # Consider only the biggest face appears in the video
-                    w_vect = faces.T[2,:]
-                    h_vect = faces.T[3,:]
-                    x0, y0, w0, h0 = faces[np.argmax(w_vect*h_vect)]
-                elif (len(faces)==1): # If there is only one face
-                    x0, y0, w0, h0 = faces[0]
-
                 if not global_var['flag_disable_detection']:
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 0), 1) # Draw a rectangle around the faces
                     cv2.rectangle(frame, (x0, y0), (x0+w0, y0+h0), (25, 199, 247), 1) # Draw a rectangle around the biggest face
-                    #cv2.rectangle(frame, (x, y), (x+w, y+h), (25, 199, 247), 1) # Draw a rectangle around the faces
+                    
+            if (len(faces)==1):
+#                ii = 0
+                global_var['image_save'] = gray[y0 : y0 + h0, x0 : x0 + w0]
+                nbr_predicted, conf      = recognizer.predict(global_var['image_save']) # Predict function
 
-                if (len(faces)>=1):
-                    global_var['image_save'] = gray[y0 : y0 + h0, x0 : x0 + w0]
-                    nbr_predicted, conf      = recognizer.predict(global_var['image_save']) # Predict function
-
+                if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
                     nom = list_nom[nbr_predicted-1] # Get resulting name
+                    if not global_var['flag_disable_detection']:
+                        txt = nom + ', distance: ' + str(conf)
+                        message_xy(frame, txt, x0, y0-5, 'w', 1)    # Name correponding to the biggest face recognized
+                    
+                    nom = ''
+                    txt = ''                           
+                        
+                    global_var['tb_nb_times_recog'][nbr_predicted-1] = global_var['tb_nb_times_recog'][nbr_predicted-1] + 1 # Increase nb of recognize times
 
+                message_xy(frame, global_var['age'],    x0+w0, y0, 'b', 1)
+                message_xy(frame, global_var['gender'], x0+w0, y0+10, 'b', 1)
+                message_xy(frame, global_var['emo'],    x0+w0, y0+20, 'b', 1)
+
+            elif (len(faces)>=2):
+                ii += 1
+                print ii
+                for (x, y, w, h) in faces:
+                    global_var['image_save'] = gray[y : y + h, x : x + w]
+                    nbr_predicted, conf      = recognizer.predict(global_var['image_save']) # Predict function
+    
                     if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
+                        nom = list_nom[nbr_predicted-1] # Get resulting name
                         if not global_var['flag_disable_detection']:
                             txt = nom + ', distance: ' + str(conf)
-                            message_xy(frame, txt, x0, y0-5, 'w', 1)
-
+                            message_xy(frame, txt, x0, y0-5, 'w', 1)    # Name correponding to the biggest face recognized
+                            if (x!=x0 and y!=y0):
+                                message_xy(frame, txt, x,  y-5,  'r', 1)    # Name correponding to face recognized
+                        
+                        nom = ''
+                        txt = ''                           
+                            
                         global_var['tb_nb_times_recog'][nbr_predicted-1] = global_var['tb_nb_times_recog'][nbr_predicted-1] + 1 # Increase nb of recognize times
-
+    
                     message_xy(frame, global_var['age'],    x0+w0, y0, 'b', 1)
                     message_xy(frame, global_var['gender'], x0+w0, y0+10, 'b', 1)
                     message_xy(frame, global_var['emo'],    x0+w0, y0+20, 'b', 1)
-
+                
+                if (ii==5):
+                    chrome_server2client(clientId, 'Plusieurs visages trouvés, veuillez rapprocher')                    
+                        
             # End of For-loop
 
         # Texts to display on video
@@ -396,9 +428,13 @@ Display Formation info for a recognized or username-known user
 def go_to_formation(clientId, xls_filename, name):
     resp = ask_go_to_formation(clientId)
     if (resp==1):
-
+        
         global global_vars
         global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
+        
+        global_var['age']     = ''
+        global_var['gender']  = ''
+        global_var['emo']     = ''
 
         global_var['flag_disable_detection'] = 1 # Disable the detection when entering Formation page
         global_var['flag_enable_recog']      = 0
@@ -427,7 +463,12 @@ def go_to_formation(clientId, xls_filename, name):
             global_var['text3'] = replace_accents2(text3)
             
         simple_message(clientId, text2 + ' ' + text3)
+        time.sleep(1)
 
+        link='<a href="http://centre-formation-orange.mybluemix.net">ici</a>'
+        simple_message(clientId, u"SILENT Cliquez " + link + u" pour accéder à la page Formation pour plus d'information")
+        time.sleep(0.5)
+        
         return_to_recog(clientId) # Return to recognition program immediately or 20 seconds before returning
 
 
@@ -450,9 +491,6 @@ def return_to_recog(clientId):
         global_var['flag_ask']                = 1
         global_var['flag_reidentify']         = 0
 
-        global_var['age']     = ''
-        global_var['gender']  = ''
-        global_var['emo']     = ''
 
 """
 Find valid username
@@ -659,7 +697,7 @@ def re_identification(clientId, nb_time_max, name0):
 
         name1 = global_var['nom'] # New result
 
-        if np.all(tb_old_name != name1) and global_var['flag_recog']:
+        if np.all(tb_old_name != name1) and global_var['flag_recog']==1:
             print 'Essaie ' + str(nb_time+1) + ': reconnu comme ' + str(name1)
 
             resp = validate_recognition(clientId, str(name1))
@@ -673,7 +711,7 @@ def re_identification(clientId, nb_time_max, name0):
                 nb_time += 1
                 tb_old_name[nb_time] = name1
 
-        elif (not global_var['flag_recog']):
+        elif (global_var['flag_recog']==0):
             print 'Essaie ' + str(nb_time+1) + ': personne inconnue'
             result = 0
             nb_time += 1
@@ -719,7 +757,8 @@ Main program body with decision and redirection
 ==============================================================================
 """
 def run_program(clientId):
-
+    global ii
+    
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
 
@@ -733,6 +772,8 @@ def run_program(clientId):
         # Thread of streaming video
         thread_video = Thread(target = video_streaming, args = (clientId,), name = 'thread_video_' + clientId)
         thread_video.start()
+        
+        time.sleep(1)
 
         start_time   = time.time() # For recognition timer (will reset after each 3 secs)
         time_origine = time.time() # For display (unchanged)
@@ -759,6 +800,8 @@ def run_program(clientId):
 
                 elapsed_time = time.time() - start_time
                 if ((elapsed_time > wait_time) and global_var['flag_enable_recog']): # Identify after each 3 seconds
+                    two_highest_results = heapq.nlargest(2, global_var['tb_nb_times_recog'])
+                    
                     if (max(global_var['tb_nb_times_recog']) >= nb_max_times/2): # If the number of times recognized is big enough
                         global_var['flag_recog']  = 1 # Known Person
                         global_var['flag_ask']    = 0
@@ -774,7 +817,31 @@ def run_program(clientId):
                                 global_var['key'] = ord('y')
                             elif (res_verify_recog==0):
                                 global_var['key'] = ord('n')
+                                
+                    #TODO: two people in camera
+                    elif (sum(two_highest_results)>=nb_max_times/2 and (two_highest_results[1]>two_highest_results[0]/2)):
 
+                        global_var['flag_recog'] = 0
+                        global_var['nom']   = '@@' # '@@' is for 2 persons found in video
+                        global_var['text']  = 'Plusieurs personnes trouvees sur la video :'
+                        global_var['text2'] = list_nom[np.argwhere(global_var['tb_nb_times_recog']==two_highest_results[0])[0][0]]
+                        global_var['text3'] = list_nom[np.argwhere(global_var['tb_nb_times_recog']==two_highest_results[1])[0][0]]
+
+                        if (not global_var['flag_reidentify']):
+                            global_var['flag_ask'] = 0
+                            simple_message(clientId, u"Désolé, j'ai trouvé au moins deux personnes, veuillez rapprocher")
+                            
+#                    elif (max(global_var['tb_nb_times_recog'])<nb_min_times):
+#                        global_var['flag_recog'] = -1 # Nobody
+#                        global_var['nom']   = '' 
+#                        global_var['text']  = 'Aucune personne trouvee'
+#                        global_var['text2'] = ''
+#                        global_var['text3'] = ''
+#
+#                        if (not global_var['flag_reidentify']):
+#                            global_var['flag_ask'] = 0
+#                            simple_message(clientId, u'Désolé, je ne vous vois pas')
+                        
                     else: # If the number of times recognized anyone from database is too low
                         global_var['flag_recog'] = 0 # Unknown Person
                         global_var['nom']   = '@' # '@' is for unknown person
@@ -787,6 +854,7 @@ def run_program(clientId):
                             simple_message(clientId, u'Désolé, je ne vous reconnaît pas')
 
                     global_var['tb_nb_times_recog'].fill(0) # reinitialize with all zeros
+                    ii = 0 #TODO: new
                     start_time = time.time()  # reset timer
 
                 """
@@ -809,7 +877,7 @@ def run_program(clientId):
                     if j==0:
                         chrome_server2client(clientId, 'DONE')
                         j=1
-                    if (global_var['flag_recog']):
+                    if (global_var['flag_recog']==1):
                         if (global_var['key']==ord('y') or global_var['key']==ord('Y')): # User chooses Y to go to Formation page
                             global_var['flag_wrong_recog']  = 0
                             get_face_emotion_api_results(clientId)
@@ -825,7 +893,7 @@ def run_program(clientId):
                             global_var['flag_ask'] = 1
                             global_var['key'] = 0
 
-                    if ((global_var['flag_recog'] and global_var['flag_wrong_recog']) or (not global_var['flag_recog'])): # Not recognized or not correctly recognized
+                    if ((global_var['flag_recog']==1 and global_var['flag_wrong_recog']==1) or (global_var['flag_recog']==0)): # Not recognized or not correctly recognized
                         if (global_var['flag_ask']):# and (not flag_quit)):
 
                             global_var['flag_enable_recog'] = 0 # Disable recognition in order not to recognize while re-identifying or taking photos
@@ -1120,8 +1188,9 @@ cascPath     = "haarcascade_frontalface_default.xml" # path to Haar-cascade trai
 imgPath      = "face_database/" # path to database of faces
 suffix       = '.png' # image file extention
 thres        = 80     # Distance threshold for recognition
-wait_time    = 3    # Time needed to wait for recognition
-nb_max_times = 30     # Maximum number of times of good recognition counted in 3 seconds (manually determined, and depends on camera)
+wait_time    = 3      # Time needed to wait for recognition
+nb_max_times = 20     # Maximum number of times of good recognition counted in 3 seconds (manually determined, and depends on camera)
+nb_min_times = 2      # Minimum number of times of good recognition counted in 3 seconds
 nb_img_max   = 5      # Number of photos needs to be taken for each user
 xls_filename = 'formation.xls' # Excel file contains Formation information
 
