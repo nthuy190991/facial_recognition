@@ -363,20 +363,20 @@ def video_streaming(clientId):
                         if not global_var['flag_disable_detection']:
                             txt = nom + ', distance: ' + str(conf)[0:5]
                             message_xy(frame, txt, x0+10, y0-5, 'w', 1)    # Name correponding to the biggest face recognized
-                            
+                            # TODO: display problem of overlapping name 
                             if (x!=x0 or y!=y0): 
-                                message_xy(frame, txt, x+10,  y-5,  'r', 1)    # Name correponding to face recognized
+                                message_xy(frame, txt, x+10,  y-5, 'r', 1)    # Name correponding to face recognized
 
                         nom = ''
                         txt = ''
                             
                         global_var['tb_nb_times_recog'][nbr_predicted-1] = global_var['tb_nb_times_recog'][nbr_predicted-1] + 1 # Increase nb of recognize times
     
-                    message_xy(frame, global_var['age'],    x0+w0, y0+10,    'b', 1)
+                    message_xy(frame, global_var['age'],    x0+w0, y0+10, 'b', 1)
                     message_xy(frame, global_var['gender'], x0+w0, y0+20, 'b', 1)
                     message_xy(frame, global_var['emo'],    x0+w0, y0+30, 'b', 1)
                 
-                if (global_var['nb_times_gt_1face']==15 and global_var['nom']!='@@'):
+                if (global_var['nb_times_gt_1face']==15 and global_var['nom']!='@@'): # If the nb of times recognize more than 2 faces at a time is too high
                     chrome_server2client(clientId, 'Plusieurs visages trouvés, veuillez rapprocher')                    
                         
             # End of For-loop
@@ -474,6 +474,7 @@ def go_to_formation(clientId, xls_filename, name):
         simple_message(clientId, text2 + ' ' + text3)
         time.sleep(1)
 
+        # Allow access to centre-formation-orange page
         link='<a href="http://centre-formation-orange.mybluemix.net">ici</a>'
         simple_message(clientId, u"SILENT Cliquez " + link + u" pour accéder à la page Formation pour plus d'information")
         time.sleep(0.5)
@@ -573,7 +574,7 @@ def take_photos(clientId, step_time, flag_show_photos):
         nb_img += 1
         time.sleep(step_time)
 
-    # Display photos that has just been taken
+    # Display photos that have just been taken
     if flag_show_photos:
         thread_show_photos = Thread(target = show_photos, args = (clientId, imgPath, name), name = 'thread_show_photos_'+clientId)
         thread_show_photos.start()
@@ -770,7 +771,6 @@ Main program body with decision and redirection
 ==============================================================================
 """
 def run_program(clientId):
-#    global ii
 
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
@@ -794,7 +794,7 @@ def run_program(clientId):
         """
         Permanent loop
         """
-        i=0
+        i=0 # Used for displaying the dialogs-loading in the template
         j=0
         while True:
             
@@ -868,10 +868,8 @@ def run_program(clientId):
                             simple_message(clientId, u'Désolé, je ne vous reconnaît pas')
 
                     global_var['tb_nb_times_recog'].fill(0) # reinitialize with all zeros
-#                    print global_var['tb_nb_times_recog']
                     if (global_var['nom'] != '@@'):
                         global_var['nb_times_gt_1face'] = 0 # reset variable
-#                    print global_var['nb_times_gt_1face']
                     start_time = time.time()  # reset timer
 
                 """
@@ -944,11 +942,8 @@ def run_program(clientId):
                                     res = allow_go_to_formation_by_id(clientId)
                                     if (res==1): # User agrees to go to Formation in providing his id manually
                                         name = ask_name(clientId, 1)
-                                        # global_var['text'], global_var['text2'], global_var['text3'] = go_to_formation(clientId, xls_filename, name)
-                                        go_to_formation(clientId, xls_filename, name)
 
-                                        # Return to recognition program (if user wishs to, otherwise, wait 20 seconds before returning anyway)
-                                        # return_to_recog(clientId)
+                                        go_to_formation(clientId, xls_filename, name)
 
                                     else: # Quit if user refuses to provide manually his id (after all other functionalities)
                                         break
