@@ -80,11 +80,11 @@ function waitForServerInput() {
 	$.post('/wait?id='+clientid).done(function(data) {
 		waitForServerInput();
 		if (data !== "RECONNECT" && data !== ""){
-			/*displayBotChat(data);
+			/*displayBotChat(data, 1);
 			$dialogsLoading.hide();*/
 			if (data.indexOf("THINK") === 0) {
 				var txt = data.substring(6);
-				displayBotChat(txt);
+				displayBotChat(txt, 1);
 				$dialogsLoading.show();
 			}
 			else if (data.indexOf("START") === 0) {
@@ -93,20 +93,26 @@ function waitForServerInput() {
 			else if (data.indexOf("DONE") === 0) {
 				$dialogsLoading.hide();
 			}
+			else if (data.indexOf("SILENT") === 0) {
+				var txt2 = data.substring(7);
+				displayBotChat(txt2, 0);
+				$dialogsLoading.hide();
+			}
 			else {
-				displayBotChat(data);
+				displayBotChat(data, 1);
 				$dialogsLoading.hide();
 			}
 		}
 	});
 }
 
-function displayBotChat(text) {
+function displayBotChat(text, flag) {
 
 	$('<div class="bubble-watson"/>').html(text).appendTo($conversation);
 	scrollToBottom();
-	startAudio(text);
-
+	if (flag === 1){
+		startAudio(text);
+	}
 }
 
 function displayHumanChat(text) {
