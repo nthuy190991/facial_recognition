@@ -479,8 +479,10 @@ def go_to_formation(clientId, xls_filename, name):
         simple_message(clientId, u"SILENT Cliquez " + link + u" pour accéder à la page Formation pour plus d'information")
         time.sleep(0.5)
         
+        cv2.waitKey(5000)
         return_to_recog(clientId) # Return to recognition program immediately or 20 seconds before returning
-
+    else:
+        return_to_recog(clientId) # Return to recognition program immediately or 20 seconds before returning        
 
 """
 Return to recognition program after displaying Formation
@@ -491,7 +493,7 @@ def return_to_recog(clientId):
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
 
     if not global_var['flag_quit']:
-        cv2.waitKey(5000)
+        
         resp_quit_formation = quit_formation(clientId)
         if (resp_quit_formation == 0):
             time.sleep(5) # wait for more 5 seconds before quitting
@@ -733,7 +735,7 @@ def re_identification(clientId, nb_time_max, name0):
 
     if (result==1): # User confirms that the recognition is correct now
         global_var['flag_enable_recog'] = 0
-        global_var['flag_reidentify']   = 0
+        # global_var['flag_reidentify']   = 0
         global_var['flag_wrong_recog']  = 0
 
         get_face_emotion_api_results(clientId)
@@ -744,7 +746,7 @@ def re_identification(clientId, nb_time_max, name0):
 
     else: # Two time failed to recognized
         global_var['flag_enable_recog'] = 0 # Disable recognition when two tries have failed
-        global_var['flag_reidentify']   = 0
+        # global_var['flag_reidentify']   = 0
         simple_message(clientId, u'Désolé je vous reconnaît pas, veuillez me donner votre identifiant')
 
         name = ask_name(clientId, 1)
@@ -764,6 +766,8 @@ def re_identification(clientId, nb_time_max, name0):
 
             time.sleep(1)
             global_var['flag_take_photo']  = 1  # Enable photo taking
+            
+    global_var['flag_reidentify']   = 0
 
 """
 ==============================================================================
@@ -866,6 +870,7 @@ def run_program(clientId):
                         if (not global_var['flag_reidentify']):
                             global_var['flag_ask'] = 1
                             simple_message(clientId, u'Désolé, je ne vous reconnaît pas')
+                            time.sleep(0.25)
 
                     global_var['tb_nb_times_recog'].fill(0) # reinitialize with all zeros
                     if (global_var['nom'] != '@@'):
