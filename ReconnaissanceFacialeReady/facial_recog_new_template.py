@@ -614,6 +614,19 @@ def retake_validate_photos(clientId, step_time, flag_show_photos, imgPath, name)
             for i in range(int(nb[0]), int(nb[2])+1):
                 nb2 = nb2 + str(i)
             nb = nb2
+        elif (nb=='*' or nb=='all'):
+            nb=''
+            for j in range(0, nb_img_max):
+                nb = nb+str(j+1)
+        elif any(nb[idx] in a for idx in range(0, len(nb))):
+            nb2 = ''
+            for j in range(0, len(nb)):
+                if (nb[j] in a):
+                    nb2 = nb2 + nb[j]
+            nb = nb2
+        else:
+            print 'Fatal error: invalid response'
+            nb = ''
 
         nb = str_replace_chars(nb, [',',';','.',' '], ['','','',''])
 
@@ -749,7 +762,7 @@ def re_identification(clientId, nb_time_max, name0):
         # global_var['flag_reidentify']   = 0
         simple_message(clientId, u'Désolé je vous reconnaît pas, veuillez me donner votre identifiant')
 
-        name = ask_name(clientId, 1)
+        name = ask_name(clientId, 0)
         if os.path.exists(imgPath+str(name)+".0"+suffix): # Assume that user's face-database exists if the photo 0.png exists
             simple_message(clientId, 'Bonjour '+ str(name)+', je vous conseille de changer vos photos')
             flag_show_photos = 1
