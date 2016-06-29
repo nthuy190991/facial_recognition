@@ -1250,5 +1250,5 @@ global_vars = []
 
 flask_init()
 
-port = int(os.getenv('PORT', '9099'))
+port = int(os.getenv('PORT', '5000'))
 app.run(host = '0.0.0.0', port = port, threaded = True)
