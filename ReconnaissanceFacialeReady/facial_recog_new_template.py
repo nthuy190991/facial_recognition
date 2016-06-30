@@ -14,7 +14,7 @@ from read_xls import read_xls
 #from edit_xls import edit_xls
 import xlrd
 from threading import Thread
-from flask import Flask,  request, render_template, send_from_directory
+from flask import Flask, request, render_template, send_from_directory
 import operator
 from watson_developer_cloud import NaturalLanguageClassifierV1
 import face_api
@@ -337,8 +337,9 @@ def video_streaming(clientId):
                 global_var['image_save'] = gray[y0 : y0 + h0, x0 : x0 + w0]
                 nbr_predicted, conf      = recognizer.predict(global_var['image_save']) # Predict function
 
+                nom = list_nom[nbr_predicted-1] # Get resulting name
+
                 if (conf < thres): # if recognizing distance is less than the predefined threshold -> FACE RECOGNIZED
-                    nom = list_nom[nbr_predicted-1] # Get resulting name
                     if not global_var['flag_disable_detection']:
                         txt = nom + ', distance: ' + str(conf)[0:5]
                         message_xy(frame, txt, x0+10, y0-5, 'w', 1)    # Name correponding to the biggest face recognized
@@ -509,17 +510,17 @@ Find valid username
 """
 def reform_username(name):
 
-    if (name=='huy' or name=='huy_new'):
+    if (name=='huy' or name=='GGQN0871'):
         firstname    = 'thanhhuy'
         lastname     = 'nguyen'
         email_suffix = '@orange.com'
 
-    elif (name=='cleblain'):
+    elif (name=='cleblain' or name=='JLTS5253'):
         firstname    = 'christian'
         lastname     = 'leblainvaux'
         email_suffix = '@orange.com'
 
-    elif (name=='catherine' or name=='lemarquis'):
+    elif (name=='catherine' or name=='lemarquis' or name=='ECPI6335'):
         firstname    = 'catherine'
         lastname     = 'lemarquis'
         email_suffix = '@orange.com'
@@ -1004,12 +1005,12 @@ def quit_program(clientId):
     global global_vars
     global_var = (item for item in global_vars if item["clientId"] == str(clientId)).next()
 
-    global_var['flag_quit'] = 0 # Turn it on to execute just the yes_no question and bye-bye
+    # global_var['flag_quit'] = 0 # Turn it on to execute just the yes_no question and bye-bye
 #    quit_opt = yes_or_no(clientId, 'Exit', 'Voulez-vous vraiment quitter ?') # This wont executed if quit by Esc key
     cv2.destroyWindow('ClientId: ' + str(clientId) + ' - Video streaming')
 
     chrome_server2client(clientId, u"Merci de votre utilisation. Au revoir, à bientôt")
-    global_var['flag_quit'] = 1
+    # global_var['flag_quit'] = 1
 
 
 """
@@ -1250,5 +1251,5 @@ global_vars = []
 
 flask_init()
 
-port = int(os.getenv('PORT', '5000'))
+port = int(os.getenv('PORT', '9099'))
 app.run(host = '0.0.0.0', port = port, threaded = True)
